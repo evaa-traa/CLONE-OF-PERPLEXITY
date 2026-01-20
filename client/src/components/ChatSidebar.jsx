@@ -37,6 +37,10 @@ export default function ChatSidebar({
   theme,
   onToggleTheme,
 }) {
+  const selectedModel = models?.find((item) => item.id === selectedModelId);
+  const uploadsStatus = selectedModel?.features?.status || "unknown";
+  const uploadsEnabled = Boolean(selectedModel?.features?.uploads);
+
   return (
     <AnimatePresence mode="wait">
       {open && (
@@ -162,6 +166,24 @@ export default function ChatSidebar({
                 </svg>
               </div>
             </div>
+            {selectedModel && (
+              <div className="px-2 flex items-center gap-2 text-[11px]">
+                <span className={cn(
+                  "inline-flex items-center rounded-full border px-2 py-0.5 font-medium",
+                  uploadsStatus === "ok"
+                    ? uploadsEnabled
+                      ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                      : "border-border text-muted-foreground bg-foreground/5"
+                    : "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                )}>
+                  {uploadsStatus === "ok"
+                    ? uploadsEnabled
+                      ? "Uploads enabled"
+                      : "Uploads off"
+                    : "Uploads unknown"}
+                </span>
+              </div>
+            )}
             {(modelsError || (modelsIssues && modelsIssues.length > 0) || (!isModelsLoading && !models?.length)) && (
               <div className="px-2 text-xs text-muted-foreground space-y-1">
                 {modelsError && <div className="text-destructive">{modelsError}</div>}

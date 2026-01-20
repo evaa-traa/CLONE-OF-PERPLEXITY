@@ -16,6 +16,9 @@ if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
 }
 
+const capabilityCache = new Map();
+const CAPABILITY_TTL_MS = 60000;
+
 function sendEvent(res, event, data) {
   if (res.writableEnded) return;
   res.write(`event: ${event}\n`);
@@ -30,6 +33,105 @@ function getFlowiseHeaders() {
     extraHeaders["Authorization"] = `Bearer ${process.env.FLOWISE_API_KEY}`;
   }
   return extraHeaders;
+}
+
+function parseMaybeJson(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value !== "string") return null;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
+function findTruthyFlag(target, keys) {
+  if (!target || typeof target !== "object") return false;
+  const stack = [target];
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current || typeof current !== "object") continue;
+    for (const [key, value] of Object.entries(current)) {
+      if (keys.includes(key) && Boolean(value)) {
+        return true;
+      }
+      if (value && typeof value === "object") {
+        stack.push(value);
+      }
+    }
+  }
+  return false;
+}
+
+function deriveCapabilities(chatflow) {
+  const chatbotConfig = parseMaybeJson(chatflow?.chatbotConfig);
+  const apiConfig = parseMaybeJson(chatflow?.apiConfig);
+  const speechToText = parseMaybeJson(chatflow?.speechToText);
+  const flowData = typeof chatflow?.flowData === "string" ? chatflow.flowData : "";
+  const uploadKeys = [
+    "uploads",
+    "upload",
+    "fileUpload",
+    "fileUploads",
+    "enableUploads",
+    "enableFileUploads",
+    "allowUploads",
+    "allowFileUploads",
+    "isFileUploadEnabled",
+    "uploadEnabled"
+  ];
+  const ttsKeys = [
+    "tts",
+    "textToSpeech",
+    "speechSynthesis",
+    "voice",
+    "enableTTS",
+    "enableTextToSpeech"
+  ];
+  const hasFlowUpload =
+    flowData.includes("File Loader") ||
+    flowData.includes("Document Loader") ||
+    flowData.includes("FileLoader") ||
+    flowData.includes("DocumentLoader");
+  const uploads =
+    hasFlowUpload ||
+    findTruthyFlag(chatbotConfig, uploadKeys) ||
+    findTruthyFlag(apiConfig, uploadKeys);
+  const tts = findTruthyFlag(chatbotConfig, ttsKeys) || findTruthyFlag(apiConfig, ttsKeys);
+  const stt = speechToText && Object.keys(speechToText).length > 0;
+  return { uploads, tts, stt };
+}
+
+async function fetchCapabilities(model) {
+  const cacheKey = String(model.index);
+  const cached = capabilityCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const url = `${model.host}/api/v1/chatflows/${model.id}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+  let value = { uploads: false, tts: false, stt: false, status: "unknown" };
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...getFlowiseHeaders()
+      },
+      signal: controller.signal
+    });
+    if (response.ok) {
+      const data = await response.json().catch(() => null);
+      if (data) {
+        value = { ...deriveCapabilities(data), status: "ok" };
+      }
+    }
+  } catch (error) {
+    value = { uploads: false, tts: false, stt: false, status: "unknown" };
+  } finally {
+    clearTimeout(timeout);
+  }
+  capabilityCache.set(cacheKey, { value, expiresAt: Date.now() + CAPABILITY_TTL_MS });
+  return value;
 }
 
 function buildPrompt(message, mode) {
@@ -162,9 +264,21 @@ function scheduleActivities(res, mode) {
   };
 }
 
-app.get("/models", (req, res) => {
+app.get("/models", async (req, res) => {
+  const detailed = loadModelsFromEnvDetailed(process.env).models;
   const { models, issues } = loadPublicModels(process.env);
-  res.json({ models, issues });
+  const capabilityPairs = await Promise.all(
+    detailed.map(async (model) => ({
+      id: String(model.index),
+      features: await fetchCapabilities(model)
+    }))
+  );
+  const capabilityMap = new Map(capabilityPairs.map((item) => [item.id, item.features]));
+  const enriched = models.map((model) => ({
+    ...model,
+    features: capabilityMap.get(model.id) || { uploads: false, tts: false, stt: false, status: "unknown" }
+  }));
+  res.json({ models: enriched, issues });
 });
 
 app.post("/chat", async (req, res) => {

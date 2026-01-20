@@ -117,7 +117,13 @@ export function useChatSession() {
           .filter((item) => item && typeof item === "object")
           .map((item) => ({
             id: String(item.id || ""),
-            name: String(item.name || "")
+            name: String(item.name || ""),
+            features: {
+              uploads: Boolean(item?.features?.uploads),
+              tts: Boolean(item?.features?.tts),
+              stt: Boolean(item?.features?.stt),
+              status: String(item?.features?.status || "unknown")
+            }
           }))
           .filter((item) => item.id && item.name);
 
