@@ -107,33 +107,53 @@ async function fetchCapabilities(model) {
   const cacheKey = String(model.index);
   const cached = capabilityCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
-  const url = `${model.host}/api/v1/chatflows/${model.id}`;
+  const baseHost = String(model.host || "").trim().replace(/\/$/, "");
+  const urls = [
+    {
+      url: `${baseHost}/api/v1/chatflows/${model.id}`,
+      headers: { "Content-Type": "application/json", ...getFlowiseHeaders() }
+    },
+    {
+      url: `${baseHost}/api/v1/public-chatflows/${model.id}`,
+      headers: { "Content-Type": "application/json" }
+    },
+    {
+      url: `${baseHost}/api/v1/public-chatbotConfig/${model.id}`,
+      headers: { "Content-Type": "application/json" }
+    }
+  ];
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
   let value = { uploads: false, tts: false, stt: false, status: "unknown" };
   try {
-    const response = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        ...getFlowiseHeaders()
-      },
-      signal: controller.signal
-    });
+    let sawUnauthorized = false;
+    let httpStatus = null;
+    for (const candidate of urls) {
+      const response = await fetch(candidate.url, {
+        headers: candidate.headers,
+        signal: controller.signal
+      });
 
-    if (response.ok) {
-      const data = await response.json().catch(() => null);
-      if (data) {
-        value = { ...deriveCapabilities(data), status: "ok" };
+      if (response.ok) {
+        const data = await response.json().catch(() => null);
+        if (data) {
+          value = { ...deriveCapabilities(data), status: "ok" };
+          break;
+        }
+      } else {
+        if (response.status === 401 || response.status === 403) {
+          sawUnauthorized = true;
+        } else if (!httpStatus) {
+          httpStatus = response.status;
+        }
       }
-    } else {
+    }
+    if (value.status !== "ok") {
       value = {
         uploads: false,
         tts: false,
         stt: false,
-        status:
-          response.status === 401 || response.status === 403
-            ? "unauthorized"
-            : `http_${response.status}`
+        status: sawUnauthorized ? "unauthorized" : httpStatus ? `http_${httpStatus}` : "unknown"
       };
     }
   } catch (error) {
@@ -226,6 +246,7 @@ async function streamFlowise({
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  let ended = false;
   const parser = createParser((event) => {
     if (event.type !== "event") return;
     const raw = event.data || "";
@@ -237,9 +258,45 @@ async function streamFlowise({
     }
 
     if (parsed && typeof parsed === "object") {
+      if (typeof parsed.event === "string" && Object.prototype.hasOwnProperty.call(parsed, "data")) {
+        const innerEvent = parsed.event;
+        const innerData = parsed.data;
+
+        if (innerEvent === "token") {
+          sendEvent(res, "token", { text: typeof innerData === "string" ? innerData : String(innerData || "") });
+          return;
+        }
+
+        if (innerEvent === "metadata") {
+          sendEvent(res, "metadata", innerData && typeof innerData === "object" ? innerData : { value: innerData });
+          return;
+        }
+
+        if (innerEvent === "start") {
+          sendEvent(res, "activity", { state: "writing" });
+          return;
+        }
+
+        if (innerEvent === "end") {
+          ended = true;
+          return;
+        }
+
+        if (innerEvent === "error") {
+          const message =
+            typeof innerData === "string"
+              ? innerData
+              : (innerData && typeof innerData === "object" && (innerData.message || innerData.error)) || "Unknown error";
+          sendEvent(res, "error", { message });
+          ended = true;
+          return;
+        }
+      }
+
       const errorText = parsed.error || parsed.message?.error;
       if (errorText) {
         sendEvent(res, "error", { message: errorText });
+        ended = true;
         return;
       }
     }
@@ -259,7 +316,12 @@ async function streamFlowise({
       break;
     }
     parser.feed(decoder.decode(value, { stream: true }));
+    if (ended) {
+      await reader.cancel().catch(() => undefined);
+      break;
+    }
   }
+  return ended;
 }
 
 function scheduleActivities(res, mode) {
