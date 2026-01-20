@@ -187,6 +187,7 @@ async function streamFlowise({
   message,
   mode,
   sessionId,
+  uploads = [],
   signal
 }) {
   const url = `${model.host}/api/v1/prediction/${model.id}`;
@@ -194,7 +195,8 @@ async function streamFlowise({
     question: buildPrompt(message, mode),
     streaming: true,
     chatId: sessionId,
-    overrideConfig: sessionId ? { sessionId } : undefined
+    overrideConfig: sessionId ? { sessionId } : undefined,
+    uploads: uploads.length > 0 ? uploads : undefined
   };
 
   console.log(`[Flowise] Fetching URL: ${url}`);
@@ -409,7 +411,7 @@ app.get("/models", async (req, res) => {
 });
 
 app.post("/chat", async (req, res) => {
-  const { message, modelId, mode, sessionId } = req.body || {};
+  const { message, modelId, mode, sessionId, uploads } = req.body || {};
   if (
     !message ||
     typeof message !== "string" ||
@@ -423,6 +425,14 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "Invalid message" });
   }
   const safeSessionId = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim().slice(0, 128) : "";
+
+  // Validate uploads if provided
+  const safeUploads = Array.isArray(uploads) ? uploads.filter(u =>
+    u && typeof u === "object" &&
+    typeof u.name === "string" &&
+    typeof u.data === "string" &&
+    typeof u.mime === "string"
+  ) : [];
 
   // Resolve safe modelId (index-based) to actual model config
   const detailed = loadModelsFromEnvDetailed(process.env);
@@ -468,6 +478,7 @@ app.post("/chat", async (req, res) => {
       message,
       mode,
       sessionId: safeSessionId,
+      uploads: safeUploads,
       signal: controller.signal
     });
     sendEvent(res, "done", { ok: true });

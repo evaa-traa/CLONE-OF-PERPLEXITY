@@ -299,6 +299,25 @@ export default function ChatArea({
 
   const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
 
+  // Track streaming time for "Searching..." status
+  const [streamStartTime, setStreamStartTime] = React.useState(null);
+  const [showSearching, setShowSearching] = React.useState(false);
+
+  useEffect(() => {
+    if (isStreaming) {
+      setStreamStartTime(Date.now());
+      const timer = setInterval(() => {
+        if (Date.now() - streamStartTime > 4000) {
+          setShowSearching(true);
+        }
+      }, 1000);
+      return () => clearInterval(timer);
+    } else {
+      setStreamStartTime(null);
+      setShowSearching(false);
+    }
+  }, [isStreaming]);
+
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* Mobile Header */}
@@ -311,7 +330,7 @@ export default function ChatArea({
           <Menu size={20} />
         </button>
         <span className="font-semibold text-sm ml-2 text-foreground">
-          Flowise Chat
+          Vector
         </span>
       </div>
 
@@ -375,13 +394,12 @@ export default function ChatArea({
               let phase = null;
               if (isStreaming && isLastAssistant) {
                 if (!hasActivities) {
-                  phase = "thinking";
+                  // Show searching if valid for >4s, otherwise thinking
+                  phase = showSearching ? "searching" : "thinking";
                 } else if (msg.activities.includes("reasoning")) {
                   phase = "reasoning";
                 } else if (msg.activities.includes("searching")) {
                   phase = "searching";
-                } else {
-                  phase = "thinking";
                 }
               }
               return (
@@ -414,8 +432,27 @@ export default function ChatArea({
                       {msg.role === "user" ? "You" : "Assistant"}
                     </div>
 
+                    {/* Status at TOP of message */}
+                    {msg.role === "assistant" && (phase || hasActivities) && isStreaming && isLastAssistant && (
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {phase && (
+                          <StreamingStatus phase={phase} />
+                        )}
+                        {hasActivities && msg.activities
+                          .filter(a => a !== 'writing') // Hide writing state as it is implied
+                          .slice(-4).map((state) => (
+                            <span
+                              key={state}
+                              className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                            >
+                              {activityLabels?.[state] || state}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+
                     <div className={cn(
-                      "text-base leading-relaxed text-foreground",
+                      "text-base leading-relaxed text-foreground fade-in-text", // Added fade-in class
                       msg.role === "user" && "text-right"
                     )}>
                       {msg.role === "assistant" ? (
@@ -428,21 +465,7 @@ export default function ChatArea({
                       )}
                     </div>
 
-                    {msg.role === "assistant" && (phase || hasActivities) && (
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        {phase && (
-                          <StreamingStatus phase={phase} />
-                        )}
-                        {hasActivities && msg.activities.slice(-4).map((state) => (
-                          <span
-                            key={state}
-                            className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                          >
-                            {activityLabels?.[state] || state}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    {/* (Status block removed from bottom) */}
 
                     {/* Assistant Extras: Sources, Related */}
                     {msg.role === "assistant" && msg.content && !isStreaming && (
@@ -537,7 +560,7 @@ export default function ChatArea({
               />
             </div>
             <p className="text-center text-xs text-muted-foreground/70 mt-3">
-              Powered by Flowise. AI can make mistakes.
+              Powered by AR-47
             </p>
           </div>
         </div>
@@ -553,12 +576,18 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const mediaRecorderRef = React.useRef(null);
   const audioChunksRef = React.useRef([]);
 
+  const handleSend = () => {
+    if ((value.trim() || selectedFiles.length > 0) && !disabled) {
+      onSend(selectedFiles);
+      setSelectedFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (value.trim() && !disabled) {
-        onSend();
-      }
+      handleSend();
     }
   };
 
@@ -701,8 +730,8 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         />
         <div className="flex items-center gap-2 pr-2">
           <button
-            onClick={onSend}
-            disabled={!value.trim() || disabled}
+            onClick={handleSend}
+            disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
             className={cn(
               "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               value.trim() && !disabled
@@ -744,7 +773,17 @@ function StreamingStatus({ phase }) {
   } else if (phase === "reasoning") {
     label = "Reasoning";
     dotColor = "bg-amber-400";
+  } else if (phase === "reasoning") {
+    label = "Reasoning";
+    dotColor = "bg-amber-400";
+  } else if (phase === "thinking") {
+    label = "Thinking";
+    dotColor = "bg-cyan-400";
   }
+
+  // Auto-show searching if thinking takes too long handled by parent logic usually, 
+  // but here we just render what is passed. 
+
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
       <span className={`flex w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse`} />

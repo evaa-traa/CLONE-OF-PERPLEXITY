@@ -52,6 +52,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased selection:bg-cyan-500/30 selection:text-cyan-200;
   }
@@ -61,10 +62,11 @@
   .glass {
     @apply bg-background/75 backdrop-blur-xl border border-border shadow-2xl;
   }
+
   .glass-light {
     @apply bg-background/75 backdrop-blur-xl border border-border shadow-xl;
   }
-  
+
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600;
   }
@@ -75,9 +77,11 @@
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   @apply bg-foreground/15 rounded-full hover:bg-foreground/25 transition-colors;
 }
@@ -87,11 +91,11 @@
   line-height: 1.75;
 }
 
-.markdown-content > *:first-child {
+.markdown-content>*:first-child {
   margin-top: 0;
 }
 
-.markdown-content > *:last-child {
+.markdown-content>*:last-child {
   margin-bottom: 0;
 }
 
@@ -100,11 +104,11 @@
   counter-reset: list-item;
 }
 
-.markdown-content ol > li {
+.markdown-content ol>li {
   counter-increment: list-item;
 }
 
-.markdown-content ol > li > span:first-child {
+.markdown-content ol>li>span:first-child {
   content: counter(list-item) ".";
 }
 
@@ -147,3 +151,25 @@
   @apply ml-4 text-foreground/80;
 }
 
+/* Text Fade-in Animation */
+@keyframes fadeInText {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-text>* {
+  animation: fadeInText 0.3s ease-out forwards;
+}
+
+.fade-in-text p,
+.fade-in-text li,
+.fade-in-text table {
+  animation: fadeInText 0.3s ease-out forwards;
+}

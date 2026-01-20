@@ -73,6 +73,33 @@ function createSession(mode) {
   };
 }
 
+// Convert File object to Flowise upload format (base64 data URI)
+async function fileToFlowise(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({
+      type: "file",
+      name: file.name,
+      data: reader.result, // data:mime;base64,...
+      mime: file.type || "application/octet-stream"
+    });
+    reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Convert array of File objects to Flowise uploads array
+async function filesToFlowise(files) {
+  if (!files || files.length === 0) return [];
+  const results = await Promise.all(
+    files.map(file => fileToFlowise(file).catch(err => {
+      console.warn(`Skipping file ${file.name}:`, err.message);
+      return null;
+    }))
+  );
+  return results.filter(Boolean);
+}
+
 export function useChatSession() {
   const [models, setModels] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState("");
@@ -219,13 +246,18 @@ export function useChatSession() {
     }
   }
 
-  async function handleSend() {
+  async function handleSend(files = []) {
     if (!message.trim() || !activeSession || isStreaming) return;
     if (message.trim().length > 10000) return;
+
+    // Convert files to Flowise format
+    const uploads = await filesToFlowise(files);
+
     const userMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: message.trim()
+      content: message.trim(),
+      attachments: uploads.length > 0 ? uploads.map(u => u.name) : undefined
     };
     const assistantMessage = {
       id: crypto.randomUUID(),
@@ -282,7 +314,8 @@ export function useChatSession() {
           message: userMessage.content,
           modelId: selectedModelId,
           mode,
-          sessionId: activeSession.id
+          sessionId: activeSession.id,
+          uploads: uploads.length > 0 ? uploads : undefined
         }),
         signal: controller.signal
       });
