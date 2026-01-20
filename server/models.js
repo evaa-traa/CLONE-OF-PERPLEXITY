@@ -26,7 +26,14 @@ function loadModelsFromEnvDetailed(env) {
 
   for (const index of indices) {
     const name = env[`MODEL_${index}_NAME`] || `Model ${index}`;
-    const id = env[`MODEL_${index}_ID`];
+    let id = env[`MODEL_${index}_ID`];
+    if (id && typeof id === "string") {
+      id = id.trim();
+      // If the ID contains a slash, it might be a partial path, extract the last segment
+      if (id.includes("/")) {
+        id = id.split("/").pop();
+      }
+    }
     const host = normalizeHost(env[`MODEL_${index}_HOST`]);
 
     const missing = [];

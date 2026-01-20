@@ -166,6 +166,11 @@ app.post("/chat", async (req, res) => {
     clearActivities();
   });
 
+  if (controller.signal.aborted) {
+    console.warn("[Chat] Request already aborted by client before starting.");
+    return res.end();
+  }
+
   try {
     // Attempt streaming first
     await streamFlowise({
@@ -177,7 +182,13 @@ app.post("/chat", async (req, res) => {
     });
     sendEvent(res, "done", { ok: true });
   } catch (error) {
-    console.error("[Chat] Streaming failed, trying non-streaming fallback:", error.message);
+    const isAbort = error.name === "AbortError" || error.message?.includes("aborted");
+    console.error(`[Chat] Streaming failed (Abort: ${isAbort}):`, error.message);
+
+    if (isAbort && controller.signal.aborted) {
+      console.log("[Chat] Client disconnected, skipping fallback.");
+      return;
+    }
 
     try {
       // Fallback to non-streaming (user's working snippet format)
@@ -194,6 +205,8 @@ app.post("/chat", async (req, res) => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload),
+        // For fallback, we'll use a fresh controller or no signal to be safe if the first failed due to a weird terminal signal state,
+        // but still respect the connection closing if we can.
         signal: controller.signal
       });
 
@@ -203,20 +216,22 @@ app.post("/chat", async (req, res) => {
       }
 
       const result = await response.json();
-      console.log("[Flowise Fallback] Success:", JSON.stringify(result).slice(0, 100) + "...");
+      console.log("[Flowise Fallback] Success");
 
-      // Extract text from result (Flowise non-streaming returns { text: "..." } or similar)
       const finalContent = result.text || result.answer || result.output || result.message || JSON.stringify(result);
 
       sendEvent(res, "token", { text: finalContent });
       sendEvent(res, "done", { ok: true });
     } catch (fallbackError) {
-      console.error("[Chat] Fallback also failed:", fallbackError.message);
-      sendEvent(res, "error", { message: fallbackError.message });
+      const isFbAbort = fallbackError.name === "AbortError" || fallbackError.message?.includes("aborted");
+      console.error(`[Chat] Fallback failed (Abort: ${isFbAbort}):`, fallbackError.message);
+      if (!isFbAbort) {
+        sendEvent(res, "error", { message: fallbackError.message });
+      }
     }
   } finally {
     clearActivities();
-    res.end();
+    if (!res.writableEnded) res.end();
   }
 });
 
