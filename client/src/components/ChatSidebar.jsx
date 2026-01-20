@@ -51,7 +51,7 @@ export default function ChatSidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
             onClick={() => setOpen?.(false)}
             aria-label="Close sidebar overlay"
           />
@@ -60,12 +60,12 @@ export default function ChatSidebar({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed left-0 top-0 bottom-0 z-50 w-[280px] border-r border-border bg-background/75 backdrop-blur-xl flex flex-col p-4 shadow-2xl"
+            className="fixed left-0 top-0 bottom-0 z-50 w-[280px] border-r border-border bg-background flex flex-col p-4 shadow-2xl"
           >
             {/* Header & Logo */}
             <div className="flex items-center justify-between mb-6 px-2">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/20">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500 flex items-center justify-center text-white font-bold">
                   <Bot size={20} />
                 </div>
                 <h1 className="text-xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/60">

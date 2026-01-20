@@ -97,7 +97,7 @@ function MarkdownContent({ content }) {
               <div className="relative group my-4">
                 <pre
                   {...props}
-                  className="bg-[#1e1e2e] border border-border rounded-lg p-4 overflow-x-auto text-sm"
+                  className="bg-zinc-900/50 border border-border rounded-lg p-4 overflow-x-auto text-sm"
                 >
                   {children}
                 </pre>
@@ -302,7 +302,7 @@ const MessageRow = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className={cn(
-        "flex gap-4",
+        "flex gap-3 md:gap-4",
         msg.role === "user" ? "flex-row-reverse" : "flex-row"
       )}
     >
@@ -318,7 +318,7 @@ const MessageRow = React.memo(({
 
       {/* Message Content */}
       <div className={cn(
-        "flex flex-col gap-2 max-w-[85%]",
+        "flex flex-col gap-2 max-w-[88%] md:max-w-[85%]",
         msg.role === "user" ? "items-end" : "items-start"
       )}>
         <div className="font-medium text-sm text-muted-foreground mb-1">
@@ -466,7 +466,7 @@ export default function ChatArea({
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center p-4 border-b border-border bg-background/70 backdrop-blur-md sticky top-0 z-10">
+      <div className="md:hidden flex items-center p-4 border-b border-border bg-background sticky top-0 z-10">
         <button
           onClick={toggleSidebar}
           className="p-2 -ml-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-lg"
@@ -494,8 +494,7 @@ export default function ChatArea({
             {/* Fake search bar for hero aesthetic - functionality is in the footer input though */}
             <div className="w-full max-w-2xl transform transition-all hover:scale-[1.01]">
               <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl opacity-20 blur-lg group-hover:opacity-30 transition-opacity" />
-                <div className="relative bg-background/75 backdrop-blur-xl border border-border rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
+                <div className="relative bg-background border border-border rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
                   <SearchInput
                     value={message}
                     onChange={onMessageChange}
@@ -559,12 +558,12 @@ export default function ChatArea({
                   <Sparkles size={14} className="text-cyan-600" />
                   <span>Related</span>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 w-full">
                   {followUps.map((item, i) => (
                     <button
                       key={i}
                       onClick={() => onSelectFollowUp(item)}
-                      className="text-left flex items-center justify-between p-3 rounded-lg border border-border bg-foreground/5 hover:bg-foreground/8 hover:border-cyan-500/30 transition-all group w-fit min-w-[300px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      className="text-left flex items-center justify-between p-3 rounded-lg border border-border bg-foreground/5 hover:bg-foreground/8 hover:border-cyan-500/30 transition-all group w-full md:w-fit md:min-w-[300px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     >
                       <span className="text-sm text-foreground/90 group-hover:text-foreground">{item}</span>
                       <ArrowRight size={14} className="text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
@@ -581,10 +580,9 @@ export default function ChatArea({
 
       {/* Footer Input Area */}
       {!isEmpty && (
-        <div className="p-4 md:p-6 bg-gradient-to-t from-background via-background to-transparent z-20">
+        <div className="p-4 md:p-6 bg-background/95 z-20">
           <div className="mx-auto max-w-3xl relative">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-2xl blur opacity-75 animate-pulse" />
-            <div className="relative bg-background/80 border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
+            <div className="relative bg-background border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
