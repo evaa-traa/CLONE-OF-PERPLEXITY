@@ -1,6 +1,11 @@
 function normalizeHost(host) {
   if (typeof host !== "string") return "";
-  return host.trim().replace(/\/$/, "");
+  return host.trim().replace(/^['"`]+|['"`]+$/g, "").replace(/\/$/, "");
+}
+
+function normalizeId(id) {
+  if (typeof id !== "string") return "";
+  return id.trim().replace(/^['"`]+|['"`]+$/g, "");
 }
 
 function collectModelIndices(env) {
@@ -28,7 +33,7 @@ function loadModelsFromEnvDetailed(env) {
     const name = env[`MODEL_${index}_NAME`] || `Model ${index}`;
     let id = env[`MODEL_${index}_ID`];
     if (id && typeof id === "string") {
-      id = id.trim();
+      id = normalizeId(id);
       // If the ID contains a slash, it might be a partial path, extract the last segment
       if (id.includes("/")) {
         id = id.split("/").pop();
