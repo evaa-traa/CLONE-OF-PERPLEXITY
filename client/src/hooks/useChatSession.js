@@ -76,6 +76,10 @@ function createSession(mode) {
 export function useChatSession() {
   const [models, setModels] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState("");
+  const [modelsIssues, setModelsIssues] = useState([]);
+  const [isModelsLoading, setIsModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState("");
+  const [modelsReloadToken, setModelsReloadToken] = useState(0);
   const [mode, setMode] = useState("chat");
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState("");
@@ -86,16 +90,65 @@ export function useChatSession() {
   const activeSession = sessions.find((item) => item.id === activeSessionId);
 
   useEffect(() => {
-    fetch("/models")
-      .then((res) => res.json())
-      .then((data) => {
-        setModels(data);
-        if (data.length > 0) {
-          setSelectedModelId((prev) => prev || data[0].id);
+    let isMounted = true;
+    const controller = new AbortController();
+
+    async function loadModels() {
+      setIsModelsLoading(true);
+      setModelsError("");
+      try {
+        const res = await fetch("/models", { signal: controller.signal });
+        const raw = await res.json().catch(() => null);
+        if (!res.ok) {
+          const message =
+            (raw && (raw.error || raw.message)) ||
+            `Failed to load models (${res.status})`;
+          throw new Error(message);
         }
-      })
-      .catch(() => setModels([]));
-  }, []);
+
+        const nextModels = Array.isArray(raw) ? raw : raw?.models;
+        const issues = Array.isArray(raw?.issues) ? raw.issues : [];
+
+        if (!Array.isArray(nextModels)) {
+          throw new Error("Invalid models response");
+        }
+
+        const normalized = nextModels
+          .filter((item) => item && typeof item === "object")
+          .map((item) => ({
+            id: String(item.id || ""),
+            name: String(item.name || ""),
+            host: item.host ? String(item.host) : undefined
+          }))
+          .filter((item) => item.id && item.name);
+
+        if (!isMounted) return;
+        setModels(normalized);
+        setModelsIssues(issues);
+
+        setSelectedModelId((prev) => {
+          if (prev && normalized.some((m) => m.id === prev)) return prev;
+          return normalized[0]?.id || "";
+        });
+      } catch (error) {
+        if (!isMounted) return;
+        if (error?.name === "AbortError") return;
+        setModels([]);
+        setModelsIssues([]);
+        setModelsError(error?.message || "Failed to load models");
+        setSelectedModelId("");
+      } finally {
+        if (!isMounted) return;
+        setIsModelsLoading(false);
+      }
+    }
+
+    loadModels();
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [modelsReloadToken]);
 
   useEffect(() => {
     if (!selectedModelId) return;
@@ -172,6 +225,23 @@ export function useChatSession() {
       activities: [],
       createdAt: Date.now()
     };
+
+    if (!selectedModelId) {
+      updateSession(activeSession.id, (session) => ({
+        ...session,
+        mode,
+        messages: trimMessages([
+          ...session.messages,
+          userMessage,
+          {
+            ...assistantMessage,
+            content: "Select a model to start chatting."
+          }
+        ])
+      }));
+      setMessage("");
+      return;
+    }
 
     updateSession(activeSession.id, (session) => {
       const updated = {
@@ -279,13 +349,19 @@ export function useChatSession() {
         parser.feed(decoder.decode(value, { stream: true }));
       }
     } catch (error) {
+      if (error?.name === "AbortError") {
+        setIsStreaming(false);
+        return;
+      }
       updateSession(activeSession.id, (session) => ({
         ...session,
         messages: session.messages.map((msg) =>
           msg.id === assistantMessage.id
             ? {
                 ...msg,
-                content: "Something went wrong. Please try again."
+                content:
+                  error?.message ||
+                  "Something went wrong. Please try again."
               }
             : msg
         )
@@ -299,6 +375,10 @@ export function useChatSession() {
     models,
     selectedModelId,
     setSelectedModelId,
+    modelsIssues,
+    isModelsLoading,
+    modelsError,
+    reloadModels: () => setModelsReloadToken((prev) => prev + 1),
     mode,
     setMode,
     sessions,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChatSidebar from "./components/ChatSidebar.jsx";
 import ChatArea from "./components/ChatArea.jsx";
 import { useChatSession } from "./hooks/useChatSession.js";
@@ -11,7 +11,14 @@ function cn(...inputs) {
 
 export default function App() {
   const [theme, setTheme] = useState(
-    () => localStorage.getItem("flowise_theme") || "dark"
+    () => {
+      const stored = localStorage.getItem("flowise_theme");
+      if (stored === "light" || stored === "dark") return stored;
+      const prefersLight =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-color-scheme: light)")?.matches;
+      return prefersLight ? "light" : "dark";
+    }
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -19,6 +26,10 @@ export default function App() {
     models,
     selectedModelId,
     setSelectedModelId,
+    modelsIssues,
+    isModelsLoading,
+    modelsError,
+    reloadModels,
     mode,
     activeSession,
     activeSessionId,
@@ -35,10 +46,26 @@ export default function App() {
     ACTIVITY_LABELS
   } = useChatSession();
 
+  const handleNewChatRef = useRef(handleNewChat);
+  useEffect(() => {
+    handleNewChatRef.current = handleNewChat;
+  }, [handleNewChat]);
+
   useEffect(() => {
     document.documentElement.classList.toggle("light", theme === "light");
     localStorage.setItem("flowise_theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        handleNewChatRef.current?.();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Handle responsive sidebar
   useEffect(() => {
@@ -68,6 +95,10 @@ export default function App() {
         models={models}
         selectedModelId={selectedModelId}
         onSelectModel={setSelectedModelId}
+        isModelsLoading={isModelsLoading}
+        modelsError={modelsError}
+        modelsIssues={modelsIssues}
+        onReloadModels={reloadModels}
         mode={mode}
         modes={MODES}
         onModeChange={handleModeChange}

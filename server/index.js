@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const morgan = require("morgan");
 const { createParser } = require("eventsource-parser");
-const { loadModelsFromEnv } = require("./models");
+const { loadModelsFromEnv, loadModelsFromEnvDetailed } = require("./models");
 
 require("dotenv").config();
 
@@ -117,8 +117,8 @@ function scheduleActivities(res, mode) {
 }
 
 app.get("/models", (req, res) => {
-  const models = loadModelsFromEnv(process.env);
-  res.json(models);
+  const { models, issues } = loadModelsFromEnvDetailed(process.env);
+  res.json({ models, issues });
 });
 
 app.post("/chat", async (req, res) => {

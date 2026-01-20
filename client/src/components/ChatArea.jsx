@@ -72,11 +72,17 @@ export default function ChatArea({
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center p-4 border-b border-white/5 bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
-        <button onClick={toggleSidebar} className="p-2 -ml-2 text-slate-400 hover:text-white">
+      <div className="md:hidden flex items-center p-4 border-b border-border bg-background/70 backdrop-blur-md sticky top-0 z-10">
+        <button
+          onClick={toggleSidebar}
+          className="p-2 -ml-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-lg"
+          aria-label="Open sidebar"
+        >
           <Menu size={20} />
         </button>
-        <span className="font-semibold text-sm ml-2">Perplexity Clone</span>
+        <span className="font-semibold text-sm ml-2 text-foreground">
+          Flowise Chat
+        </span>
       </div>
 
       {/* Main Content Area */}
@@ -87,7 +93,7 @@ export default function ChatArea({
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center mb-6 shadow-xl shadow-cyan-500/20">
               <Sparkles className="text-white w-8 h-8" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-display font-medium text-center mb-12 text-slate-200">
+            <h1 className="text-3xl md:text-4xl font-display font-medium text-center mb-12 text-foreground">
               Where knowledge begins
             </h1>
 
@@ -95,7 +101,7 @@ export default function ChatArea({
             <div className="w-full max-w-2xl transform transition-all hover:scale-[1.01]">
               <div className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl opacity-20 blur-lg group-hover:opacity-30 transition-opacity" />
-                <div className="relative bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
+                <div className="relative bg-background/75 backdrop-blur-xl border border-border rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
                   <SearchInput
                     value={message}
                     onChange={onMessageChange}
@@ -114,7 +120,7 @@ export default function ChatArea({
                       onMessageChange(suggestion);
                       setTimeout(() => onSend(), 100);
                     }}
-                    className="px-4 py-2 rounded-full border border-white/5 bg-white/5 text-sm text-slate-400 hover:bg-white/10 hover:text-cyan-400 hover:border-cyan-500/30 transition-all font-medium"
+                    className="px-4 py-2 rounded-full border border-border bg-foreground/5 text-sm text-muted-foreground hover:bg-foreground/8 hover:text-cyan-600 hover:border-cyan-500/30 transition-all font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                   >
                     {suggestion}
                   </button>
@@ -125,7 +131,13 @@ export default function ChatArea({
         ) : (
           /* Chat Messages */
           <div className="mx-auto max-w-3xl w-full px-4 md:px-0 py-8 space-y-8">
-            {activeSession?.messages.map((msg, index) => (
+            {activeSession?.messages.map((msg, index) => {
+              const sources = msg.content ? extractSources(msg.content) : [];
+              const lastUserBefore = [...(activeSession?.messages || [])]
+                .slice(0, index)
+                .reverse()
+                .find((entry) => entry.role === "user");
+              return (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -140,8 +152,8 @@ export default function ChatArea({
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
                   msg.role === "user"
-                    ? "bg-slate-800 border-slate-700 text-slate-300"
-                    : "bg-cyan-950/30 border-cyan-500/20 text-cyan-400"
+                    ? "bg-foreground/5 border-border text-foreground"
+                    : "bg-cyan-500/10 border-cyan-500/20 text-cyan-600"
                 )}>
                   {msg.role === "user" ? <div className="text-xs font-bold">You</div> : <Sparkles size={16} />}
                 </div>
@@ -151,12 +163,12 @@ export default function ChatArea({
                   "flex flex-col gap-2 max-w-[85%]",
                   msg.role === "user" ? "items-end" : "items-start"
                 )}>
-                  <div className="font-medium text-sm text-slate-400 mb-1">
-                    {msg.role === "user" ? "You" : "Perplexity"}
+                  <div className="font-medium text-sm text-muted-foreground mb-1">
+                    {msg.role === "user" ? "You" : "Assistant"}
                   </div>
 
                   <div className={cn(
-                    "text-base leading-relaxed text-slate-200",
+                    "text-base leading-relaxed text-foreground",
                     msg.role === "user" && "text-right"
                   )}>
                     {msg.content}
@@ -165,24 +177,37 @@ export default function ChatArea({
                     )}
                   </div>
 
+                  {msg.role === "assistant" && Array.isArray(msg.activities) && msg.activities.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {msg.activities.slice(-4).map((state) => (
+                        <span
+                          key={state}
+                          className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                        >
+                          {activityLabels?.[state] || state}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Assistant Extras: Sources, Related */}
                   {msg.role === "assistant" && msg.content && !isStreaming && (
                     <div className="mt-4 space-y-4 w-full">
                       {/* Sources */}
-                      {extractSources(msg.content).length > 0 && (
+                      {sources.length > 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {extractSources(msg.content).slice(0, 4).map((url, i) => (
+                          {sources.slice(0, 4).map((url, i) => (
                             <a
                               key={i}
                               href={url}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/50 border border-white/5 hover:bg-slate-800 transition-colors group"
+                              className="flex items-center gap-2 p-2 rounded-lg bg-foreground/5 border border-border hover:bg-foreground/8 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                             >
-                              <div className="w-5 h-5 rounded bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-cyan-400">
+                              <div className="w-5 h-5 rounded bg-foreground/5 flex items-center justify-center text-muted-foreground group-hover:text-cyan-600">
                                 <Globe size={12} />
                               </div>
-                              <span className="text-xs text-slate-400 truncate flex-1">{new URL(url).hostname}</span>
+                              <span className="text-xs text-muted-foreground truncate flex-1">{new URL(url).hostname}</span>
                             </a>
                           ))}
                         </div>
@@ -190,23 +215,36 @@ export default function ChatArea({
 
                       {/* Action Buttons */}
                       <div className="flex items-center gap-2 pt-2">
-                        <ActionBtn icon={<Copy size={14} />} label="Copy" />
-                        <ActionBtn icon={<RefreshCw size={14} />} label="Regenerate" onClick={() => onSend()} />
+                        <ActionBtn
+                          icon={<Copy size={14} />}
+                          label="Copy"
+                          onClick={() => navigator.clipboard?.writeText(msg.content || "")}
+                        />
+                        <ActionBtn
+                          icon={<RefreshCw size={14} />}
+                          label="Regenerate"
+                          onClick={() => {
+                            const prompt = lastUserBefore?.content || "";
+                            if (!prompt) return;
+                            onMessageChange(prompt);
+                            setTimeout(() => onSend(), 50);
+                          }}
+                        />
                         <div className="flex-1" />
-                        <ActionBtn icon={<ThumbsUp size={14} />} />
-                        <ActionBtn icon={<ThumbsDown size={14} />} />
+                        <ActionBtn icon={<ThumbsUp size={14} />} label="Like" />
+                        <ActionBtn icon={<ThumbsDown size={14} />} label="Dislike" />
                       </div>
                     </div>
                   )}
                 </div>
               </motion.div>
-            ))}
+            )})}
 
             {/* Follow-ups */}
             {!isStreaming && followUps.length > 0 && (
               <div className="pl-12 space-y-3 animate-in fade-in duration-500">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-400">
-                  <Sparkles size={14} className="text-cyan-500" />
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Sparkles size={14} className="text-cyan-600" />
                   <span>Related</span>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -214,10 +252,10 @@ export default function ChatArea({
                     <button
                       key={i}
                       onClick={() => onSelectFollowUp(item)}
-                      className="text-left flex items-center justify-between p-3 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 hover:border-cyan-500/30 transition-all group w-fit min-w-[300px]"
+                      className="text-left flex items-center justify-between p-3 rounded-lg border border-border bg-foreground/5 hover:bg-foreground/8 hover:border-cyan-500/30 transition-all group w-fit min-w-[300px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     >
-                      <span className="text-sm text-slate-300 group-hover:text-cyan-100">{item}</span>
-                      <ArrowRight size={14} className="text-slate-500 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                      <span className="text-sm text-foreground/90 group-hover:text-foreground">{item}</span>
+                      <ArrowRight size={14} className="text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                     </button>
                   ))}
                 </div>
@@ -234,7 +272,7 @@ export default function ChatArea({
         <div className="p-4 md:p-6 bg-gradient-to-t from-background via-background to-transparent z-20">
           <div className="mx-auto max-w-3xl relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-2xl blur opacity-75 animate-pulse" />
-            <div className="relative bg-slate-900 border border-white/10 rounded-2xl p-2 shadow-2xl flex items-center gap-2">
+            <div className="relative bg-background/80 border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
@@ -242,8 +280,8 @@ export default function ChatArea({
                 disabled={isStreaming}
               />
             </div>
-            <p className="text-center text-xs text-slate-600 mt-3">
-              Powered by Perplexity Clone. AI can make mistakes.
+            <p className="text-center text-xs text-muted-foreground/70 mt-3">
+              Powered by Flowise. AI can make mistakes.
             </p>
           </div>
         </div>
@@ -269,8 +307,9 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false }) {
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
+        aria-label={isHero ? "Ask anything" : "Message"}
         className={cn(
-          "flex-1 bg-transparent border-none focus:ring-0 text-slate-200 placeholder:text-slate-500 resize-none py-3 px-3 custom-scrollbar",
+          "flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder:text-muted-foreground resize-none py-3 px-3 custom-scrollbar",
           isHero ? "text-lg md:text-xl font-medium" : "text-sm md:text-base"
         )}
         rows={isHero ? 1 : 1}
@@ -281,10 +320,10 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false }) {
           onClick={onSend}
           disabled={!value.trim() || disabled}
           className={cn(
-            "p-2 rounded-xl transition-all duration-200 flex items-center justify-center",
+            "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
             value.trim() && !disabled
               ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
-              : "bg-slate-800 text-slate-600 cursor-not-allowed"
+              : "bg-foreground/5 text-muted-foreground cursor-not-allowed"
           )}
         >
           {disabled ? (
@@ -302,7 +341,8 @@ function ActionBtn({ icon, label, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium text-slate-500 hover:text-slate-200 hover:bg-white/5 transition-colors"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      aria-label={label}
     >
       {icon}
       {label && <span>{label}</span>}
