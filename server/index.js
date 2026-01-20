@@ -57,20 +57,41 @@ async function streamFlowise({
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload),
-    signal
+    signal: controller.signal // Ensure we use the controller signal explicitly
   }).catch((err) => {
     console.error("[Flowise] Fetch error:", err);
     throw new Error(`Failed to connect to Flowise: ${err.message}`);
   });
 
-  if (!response.ok || !response.body) {
+  const contentType = response.headers.get("content-type") || "";
+  console.log(`[Flowise] Status: ${response.status}, Content-Type: ${contentType}`);
+  console.log(`[Flowise] Headers:`, JSON.stringify(Object.fromEntries(response.headers.entries())));
+
+  if (!response.ok) {
     const text = await response.text().catch(() => "");
     console.error(`[Flowise] API error (${response.status}):`, text);
     throw new Error(`Flowise error ${response.status}: ${text}`);
   }
 
-  const contentType = response.headers.get("content-type") || "";
-  console.log(`[Flowise] Connected. Content-Type: ${contentType}`);
+  if (!response.body) {
+    throw new Error("Flowise returned an empty response body.");
+  }
+
+  // If the content type is not a stream, it might be a JSON error hidden in a 200 OK 
+  // or just a non-streaming response that we should handle.
+  if (!contentType.includes("text/event-stream")) {
+    console.warn(`[Flowise] Warning: Expected event-stream but got ${contentType}`);
+    // If it's JSON, we can try to parse it
+    if (contentType.includes("application/json")) {
+      const json = await response.json().catch(() => null);
+      if (json) {
+        console.log(`[Flowise] Parsed JSON instead of stream:`, JSON.stringify(json).slice(0, 50));
+        const text = json.text || json.answer || json.output || json.message || JSON.stringify(json);
+        sendEvent(res, "token", { text });
+        return; // We're done
+      }
+    }
+  }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
