@@ -97,9 +97,15 @@ function deriveCapabilities(chatflow) {
     flowData.includes("File Loader") ||
     flowData.includes("Document Loader") ||
     flowData.includes("FileLoader") ||
-    flowData.includes("DocumentLoader");
+    flowData.includes("DocumentLoader") ||
+    flowData.includes("Uploads") ||
+    flowData.includes("upload") ||
+    flowData.includes("Document") ||
+    flowData.includes("PDF") ||
+    flowData.includes("Image");
   const uploads =
     hasFlowUpload ||
+    findTruthyFlag(chatflow, uploadKeys) ||
     findTruthyFlag(chatbotConfig, uploadKeys) ||
     findTruthyFlag(apiConfig, uploadKeys);
   const tts = findTruthyFlag(chatbotConfig, ttsKeys) || findTruthyFlag(apiConfig, ttsKeys);
@@ -170,8 +176,14 @@ async function fetchCapabilities(model) {
 }
 
 function buildPrompt(message, mode) {
+  const formatting = [
+    "Format your response in Markdown.",
+    "Use headings, bullet points, and tables when helpful.",
+    "Do not include raw tool JSON or internal tool logs in the final answer."
+  ].join("\n");
   if (mode === "research") {
     return [
+      formatting,
       "You are a research assistant.",
       "Provide a structured answer with sections: Summary, Key Points, and Sources.",
       "If you do not have sources, write: Sources: No sources provided.",
@@ -179,7 +191,7 @@ function buildPrompt(message, mode) {
       `User: ${message}`
     ].join("\n");
   }
-  return message;
+  return [formatting, `User: ${message}`].join("\n");
 }
 
 async function streamFlowise({
@@ -187,12 +199,15 @@ async function streamFlowise({
   model,
   message,
   mode,
+  sessionId,
   signal
 }) {
   const url = `${model.host}/api/v1/prediction/${model.id}`;
   const payload = {
     question: buildPrompt(message, mode),
-    streaming: true
+    streaming: true,
+    chatId: sessionId,
+    overrideConfig: sessionId ? { sessionId } : undefined
   };
 
   console.log(`[Flowise] Fetching URL: ${url}`);
@@ -253,7 +268,48 @@ async function streamFlowise({
   let ended = false;
   const parser = createParser((event) => {
     if (event.type !== "event") return;
+    const upstreamEventName = event.event || "";
     const raw = event.data || "";
+    if (!raw) return;
+
+    if (upstreamEventName) {
+      if (upstreamEventName === "token") {
+        sendEvent(res, "token", { text: raw });
+        return;
+      }
+
+      if (upstreamEventName === "metadata") {
+        let meta = null;
+        try {
+          meta = JSON.parse(raw);
+        } catch (error) {
+          meta = { value: raw };
+        }
+        sendEvent(res, "metadata", meta);
+        return;
+      }
+
+      if (upstreamEventName === "start") {
+        sendEvent(res, "activity", { state: "writing" });
+        return;
+      }
+
+      if (upstreamEventName === "end") {
+        ended = true;
+        return;
+      }
+
+      if (upstreamEventName === "error") {
+        sendEvent(res, "error", { message: raw });
+        ended = true;
+        return;
+      }
+
+      if (upstreamEventName === "usedTools" || upstreamEventName === "agentFlowEvent") {
+        return;
+      }
+    }
+
     let parsed = null;
     try {
       parsed = JSON.parse(raw);
@@ -293,6 +349,10 @@ async function streamFlowise({
               : (innerData && typeof innerData === "object" && (innerData.message || innerData.error)) || "Unknown error";
           sendEvent(res, "error", { message });
           ended = true;
+          return;
+        }
+
+        if (innerEvent === "usedTools" || innerEvent === "agentFlowEvent") {
           return;
         }
       }
@@ -362,7 +422,7 @@ app.get("/models", async (req, res) => {
 });
 
 app.post("/chat", async (req, res) => {
-  const { message, modelId, mode } = req.body || {};
+  const { message, modelId, mode, sessionId } = req.body || {};
   if (
     !message ||
     typeof message !== "string" ||
@@ -375,6 +435,7 @@ app.post("/chat", async (req, res) => {
   ) {
     return res.status(400).json({ error: "Invalid message" });
   }
+  const safeSessionId = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim().slice(0, 128) : "";
 
   // Resolve safe modelId (index-based) to actual model config
   const detailed = loadModelsFromEnvDetailed(process.env);
@@ -419,6 +480,7 @@ app.post("/chat", async (req, res) => {
       model,
       message,
       mode,
+      sessionId: safeSessionId,
       signal: controller.signal
     });
     sendEvent(res, "done", { ok: true });
@@ -440,7 +502,9 @@ app.post("/chat", async (req, res) => {
       // Fallback to non-streaming (user's working snippet format)
       const url = `${model.host}/api/v1/prediction/${model.id}`;
       const payload = {
-        question: buildPrompt(message, mode)
+        question: buildPrompt(message, mode),
+        chatId: safeSessionId,
+        overrideConfig: safeSessionId ? { sessionId: safeSessionId } : undefined
       };
 
       console.log(`[Flowise Fallback] Fetching URL: ${url}`);
@@ -484,7 +548,7 @@ app.post("/chat", async (req, res) => {
 
 // Non-streaming JSON endpoint compatible with Flowise template usage
 app.post("/predict", async (req, res) => {
-  const { question, modelId, mode = "chat" } = req.body || {};
+  const { question, modelId, mode = "chat", sessionId } = req.body || {};
   if (
     !question ||
     typeof question !== "string" ||
@@ -493,6 +557,7 @@ app.post("/predict", async (req, res) => {
   ) {
     return res.status(400).json({ error: "Invalid request" });
   }
+  const safeSessionId = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim().slice(0, 128) : "";
 
   // Resolve safe modelId (index-based) to actual model config
   const detailed = loadModelsFromEnvDetailed(process.env);
@@ -511,7 +576,9 @@ app.post("/predict", async (req, res) => {
 
   const url = `${model.host}/api/v1/prediction/${model.id}`;
   const payload = {
-    question: buildPrompt(question, mode)
+    question: buildPrompt(question, mode),
+    chatId: safeSessionId,
+    overrideConfig: safeSessionId ? { sessionId: safeSessionId } : undefined
   };
 
   const extraHeaders = getFlowiseHeaders(model);

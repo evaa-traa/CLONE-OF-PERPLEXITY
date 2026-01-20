@@ -277,7 +277,8 @@ export function useChatSession() {
         body: JSON.stringify({
           message: userMessage.content,
           modelId: selectedModelId,
-          mode
+          mode,
+          sessionId: activeSession.id
         }),
         signal: controller.signal
       });
