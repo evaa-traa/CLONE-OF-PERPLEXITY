@@ -188,7 +188,10 @@ async function streamFlowise({
     duplex: 'half'
   }).catch((err) => {
     console.error("[Flowise] Fetch error:", err);
-    throw new Error(`Failed to connect to Flowise: ${err.message}`);
+    const wrapped = new Error(`Failed to connect to Flowise: ${err.message}`);
+    wrapped.name = err?.name || wrapped.name;
+    wrapped.cause = err;
+    throw wrapped;
   });
 
   const contentType = response.headers.get("content-type") || "";
@@ -322,11 +325,19 @@ app.post("/chat", async (req, res) => {
     "X-Accel-Buffering": "no"
   });
 
+  sendEvent(res, "activity", { state: "writing" });
+
   const clearActivities = scheduleActivities(res, mode);
 
   const controller = new AbortController();
-  req.on("close", () => {
+  req.on("aborted", () => {
     controller.abort();
+    clearActivities();
+  });
+  res.on("close", () => {
+    if (!res.writableEnded) {
+      controller.abort();
+    }
     clearActivities();
   });
 
@@ -346,7 +357,7 @@ app.post("/chat", async (req, res) => {
     });
     sendEvent(res, "done", { ok: true });
   } catch (error) {
-    const clientAborted = controller.signal.aborted || req.aborted;
+    const clientAborted = req.aborted || controller.signal.aborted;
     const isAbortError = error?.name === "AbortError";
     console.error(
       `[Chat] Streaming failed (ClientAborted: ${clientAborted}, AbortError: ${isAbortError}):`,
