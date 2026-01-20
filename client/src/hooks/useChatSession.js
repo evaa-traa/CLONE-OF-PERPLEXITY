@@ -117,8 +117,7 @@ export function useChatSession() {
           .filter((item) => item && typeof item === "object")
           .map((item) => ({
             id: String(item.id || ""),
-            name: String(item.name || ""),
-            host: item.host ? String(item.host) : undefined
+            name: String(item.name || "")
           }))
           .filter((item) => item.id && item.name);
 
@@ -396,4 +395,19 @@ export function useChatSession() {
     MODES,
     ACTIVITY_LABELS
   };
+}
+
+export async function query(data) {
+  const response = await fetch("/predict", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data || {})
+  });
+  const isJson = (response.headers.get("content-type") || "").includes("application/json");
+  if (!response.ok) {
+    const text = isJson ? await response.json().catch(() => null) : await response.text().catch(() => "");
+    const message = (text && (text.error || text.message)) || (typeof text === "string" ? text : "");
+    throw new Error(message || `Request failed (${response.status})`);
+  }
+  return isJson ? await response.json() : {};
 }

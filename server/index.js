@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const morgan = require("morgan");
 const { createParser } = require("eventsource-parser");
-const { loadModelsFromEnv, loadModelsFromEnvDetailed } = require("./models");
+const { loadModelsFromEnv, loadModelsFromEnvDetailed, loadPublicModels } = require("./models");
 
 require("dotenv").config();
 
@@ -51,10 +51,18 @@ async function streamFlowise({
   console.log(`[Flowise] Fetching URL: ${url}`);
   console.log(`[Flowise] Payload:`, JSON.stringify(payload));
 
+  const extraHeaders = {};
+  if (process.env.FLOWISE_AUTH_HEADER && process.env.FLOWISE_AUTH_VALUE) {
+    extraHeaders[process.env.FLOWISE_AUTH_HEADER] = process.env.FLOWISE_AUTH_VALUE;
+  } else if (process.env.FLOWISE_API_KEY) {
+    extraHeaders["Authorization"] = `Bearer ${process.env.FLOWISE_API_KEY}`;
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...extraHeaders
     },
     body: JSON.stringify(payload),
     signal,
@@ -138,10 +146,11 @@ function scheduleActivities(res, mode) {
     mode === "research"
       ? ["searching", "reading", "reasoning", "writing"]
       : ["writing"];
+  const baseDelay = mode === "research" ? 800 : 500;
   const timers = steps.map((step, index) =>
     setTimeout(() => {
       sendEvent(res, "activity", { state: step });
-    }, index * 600)
+    }, (index + 1) * baseDelay)
   );
   return () => {
     timers.forEach((timer) => clearTimeout(timer));
@@ -149,7 +158,7 @@ function scheduleActivities(res, mode) {
 }
 
 app.get("/models", (req, res) => {
-  const { models, issues } = loadModelsFromEnvDetailed(process.env);
+  const { models, issues } = loadPublicModels(process.env);
   res.json({ models, issues });
 });
 
@@ -168,8 +177,10 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "Invalid message" });
   }
 
-  const models = loadModelsFromEnv(process.env);
-  const model = models.find((item) => item.id === modelId);
+  // Resolve safe modelId (index-based) to actual model config
+  const detailed = loadModelsFromEnvDetailed(process.env);
+  const idx = Number(modelId);
+  const model = detailed.models.find((item) => item.index === idx);
   if (!model) {
     return res.status(404).json({ error: "Model not found" });
   }
@@ -225,7 +236,8 @@ app.post("/chat", async (req, res) => {
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...extraHeaders
         },
         body: JSON.stringify(payload),
         // For fallback, we'll use a fresh fetch without the same abort signal 
@@ -254,6 +266,66 @@ app.post("/chat", async (req, res) => {
   } finally {
     clearActivities();
     if (!res.writableEnded) res.end();
+  }
+});
+
+// Non-streaming JSON endpoint compatible with Flowise template usage
+app.post("/predict", async (req, res) => {
+  const { question, modelId, mode = "chat" } = req.body || {};
+  if (
+    !question ||
+    typeof question !== "string" ||
+    question.length > 10000 ||
+    !["chat", "research"].includes(mode)
+  ) {
+    return res.status(400).json({ error: "Invalid request" });
+  }
+
+  // Resolve safe modelId (index-based) to actual model config
+  const detailed = loadModelsFromEnvDetailed(process.env);
+  let model = null;
+  if (typeof modelId === "string" && modelId.trim() !== "") {
+    const idx = Number(modelId);
+    model = detailed.models.find((item) => item.index === idx) || null;
+  }
+  // Fallback to first configured model if none provided
+  if (!model) {
+    model = detailed.models[0] || null;
+  }
+  if (!model) {
+    return res.status(404).json({ error: "Model not found" });
+  }
+
+  const url = `${model.host}/api/v1/prediction/${model.id}`;
+  const payload = {
+    question: buildPrompt(question, mode)
+  };
+
+  const extraHeaders = {};
+  if (process.env.FLOWISE_AUTH_HEADER && process.env.FLOWISE_AUTH_VALUE) {
+    extraHeaders[process.env.FLOWISE_AUTH_HEADER] = process.env.FLOWISE_AUTH_VALUE;
+  } else if (process.env.FLOWISE_API_KEY) {
+    extraHeaders["Authorization"] = `Bearer ${process.env.FLOWISE_API_KEY}`;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...extraHeaders },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return res
+        .status(response.status)
+        .json({ error: `Upstream error: ${text || response.statusText}` });
+    }
+
+    const result = await response.json();
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ error: err.message || "Server error" });
   }
 });
 

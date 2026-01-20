@@ -45,7 +45,7 @@ function loadModelsFromEnvDetailed(env) {
       continue;
     }
 
-    models.push({ name, id, host });
+    models.push({ name, id, host, index });
   }
 
   if (models.length === 0) {
@@ -59,7 +59,17 @@ function loadModelsFromEnv(env) {
   return loadModelsFromEnvDetailed(env).models;
 }
 
+function loadPublicModels(env) {
+  const detailed = loadModelsFromEnvDetailed(env);
+  const publicModels = detailed.models.map((m) => ({
+    id: String(m.index),
+    name: m.name
+  }));
+  return { models: publicModels, issues: detailed.issues };
+}
+
 module.exports = {
   loadModelsFromEnv,
-  loadModelsFromEnvDetailed
+  loadModelsFromEnvDetailed,
+  loadPublicModels
 };
