@@ -269,6 +269,151 @@ function suggestFollowUps(prompt) {
   ];
 }
 
+// Memoized Message Row Component
+const MessageRow = React.memo(({
+  msg,
+  index,
+  isLastAssistant,
+  isStreaming,
+  showSearching,
+  activityLabels,
+  onMessageChange,
+  onSend,
+  activeSession
+}) => {
+  const sources = msg.content ? extractSources(msg.content) : [];
+  const hasActivities = Array.isArray(msg.activities) && msg.activities.length > 0;
+
+  // Determine phase for streaming messages
+  let phase = null;
+  if (isStreaming && isLastAssistant && msg.role === "assistant") {
+    if (!hasActivities) {
+      phase = showSearching ? "searching" : "thinking";
+    } else if (msg.activities.includes("reasoning")) {
+      phase = "reasoning";
+    } else if (msg.activities.includes("searching")) {
+      phase = "searching";
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className={cn(
+        "flex gap-4",
+        msg.role === "user" ? "flex-row-reverse" : "flex-row"
+      )}
+    >
+      {/* Avatar */}
+      <div className={cn(
+        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
+        msg.role === "user"
+          ? "bg-foreground/5 border-border text-foreground"
+          : "bg-cyan-500/10 border-cyan-500/20 text-cyan-600"
+      )}>
+        {msg.role === "user" ? <div className="text-xs font-bold">You</div> : <Sparkles size={16} />}
+      </div>
+
+      {/* Message Content */}
+      <div className={cn(
+        "flex flex-col gap-2 max-w-[85%]",
+        msg.role === "user" ? "items-end" : "items-start"
+      )}>
+        <div className="font-medium text-sm text-muted-foreground mb-1">
+          {msg.role === "user" ? "You" : "Vector"}
+        </div>
+
+        {/* Status at TOP of message (Only visible during streaming) */}
+        {phase && (
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <StreamingStatus phase={phase} />
+            {hasActivities && msg.activities
+              .filter(a => a !== 'writing')
+              .slice(-4).map((state) => (
+                <span
+                  key={state}
+                  className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                >
+                  {activityLabels?.[state] || state}
+                </span>
+              ))}
+          </div>
+        )}
+
+        <div className={cn(
+          "text-base leading-relaxed text-foreground", // Removed fade-in-text to fix blinking
+          msg.role === "user" && "text-right"
+        )}>
+          {msg.role === "assistant" ? (
+            <MarkdownContent content={msg.content} />
+          ) : (
+            msg.content
+          )}
+          {isStreaming && isLastAssistant && (
+            <span className="inline-block w-2 h-4 bg-cyan-400 animate-pulse ml-1 align-bottom rounded-sm" />
+          )}
+        </div>
+
+        {/* Assistant Extras: Sources, Related */}
+        {msg.role === "assistant" && msg.content && !isStreaming && (
+          <div className="mt-4 space-y-4 w-full">
+            {/* Sources */}
+            {sources.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 custom-scrollbar">
+                {sources.map((item, idx) => (
+                  <a
+                    key={idx}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 flex flex-col justify-between w-32 h-20 p-2 rounded-lg border border-border bg-foreground/5 hover:bg-foreground/10 hover:border-cyan-500/30 transition-all text-xs group"
+                  >
+                    <div className="font-medium truncate text-foreground/90 group-hover:text-cyan-500 transition-colors">
+                      {item.title}
+                    </div>
+                    <div className="flex items-center gap-1 text-muted-foreground/70">
+                      <Globe size={10} />
+                      <span className="truncate">{new URL(item.url).hostname.replace('www.', '')}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+              <ActionBtn
+                icon={<Copy size={14} />}
+                label="Copy"
+                onClick={() => navigator.clipboard.writeText(msg.content)}
+              />
+              <ActionBtn
+                icon={<RefreshCw size={14} />}
+                label="Regenerate"
+                onClick={() => {
+                  const lastUserMsg = [...(activeSession?.messages || [])]
+                    .slice(0, index)
+                    .reverse()
+                    .find(m => m.role === "user");
+                  if (lastUserMsg) {
+                    onMessageChange(lastUserMsg.content);
+                    setTimeout(() => onSend(), 50);
+                  }
+                }}
+              />
+              <div className="flex-1" />
+              <ActionBtn icon={<ThumbsUp size={14} />} label="Like" />
+              <ActionBtn icon={<ThumbsDown size={14} />} label="Dislike" />
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+
 export default function ChatArea({
   activeSession,
   isStreaming,
@@ -283,21 +428,6 @@ export default function ChatArea({
 }) {
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeSession?.messages, isStreaming]);
-
-  const followUps = useMemo(() => {
-    const lastUserMsg = activeSession?.messages
-      .filter((entry) => entry.role === "user")
-      .pop();
-
-    return suggestFollowUps(lastUserMsg?.content || "");
-  }, [activeSession?.messages]);
-
-  const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
 
   // Track streaming time for "Searching..." status
   const [streamStartTime, setStreamStartTime] = React.useState(null);
@@ -317,6 +447,21 @@ export default function ChatArea({
       setShowSearching(false);
     }
   }, [isStreaming]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [activeSession?.messages?.length, isStreaming, showSearching]);
+
+  const followUps = useMemo(() => {
+    const lastUserMsg = activeSession?.messages
+      .filter((entry) => entry.role === "user")
+      .pop();
+
+    return suggestFollowUps(lastUserMsg?.content || "");
+  }, [activeSession?.messages]);
+
+  const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
@@ -363,7 +508,12 @@ export default function ChatArea({
               </div>
 
               <div className="mt-8 flex flex-wrap justify-center gap-2">
-                {["Latest AI News", "Python vs Rust", "Explain Quantum Computing", "History of Rome"].map((suggestion) => (
+                {[
+                  "How does AI work?",
+                  "Write a Python script",
+                  "Latest tech news",
+                  "Explain quantum physics"
+                ].map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => {
@@ -382,140 +532,24 @@ export default function ChatArea({
           /* Chat Messages */
           <div className="mx-auto max-w-3xl w-full px-4 md:px-0 py-8 space-y-8">
             {activeSession?.messages.map((msg, index) => {
-              const sources = msg.content ? extractSources(msg.content) : [];
-              const lastUserBefore = [...(activeSession?.messages || [])]
-                .slice(0, index)
-                .reverse()
-                .find((entry) => entry.role === "user");
               const isLastAssistant =
                 msg.role === "assistant" &&
                 index === (activeSession?.messages?.length || 0) - 1;
-              const hasActivities = Array.isArray(msg.activities) && msg.activities.length > 0;
-              let phase = null;
-              if (isStreaming && isLastAssistant) {
-                if (!hasActivities) {
-                  // Show searching if valid for >4s, otherwise thinking
-                  phase = showSearching ? "searching" : "thinking";
-                } else if (msg.activities.includes("reasoning")) {
-                  phase = "reasoning";
-                } else if (msg.activities.includes("searching")) {
-                  phase = "searching";
-                }
-              }
+
               return (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
+                <MessageRow
                   key={msg.id || index}
-                  className={cn(
-                    "flex gap-4",
-                    msg.role === "user" ? "flex-row-reverse" : "flex-row"
-                  )}
-                >
-                  {/* Avatar */}
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
-                    msg.role === "user"
-                      ? "bg-foreground/5 border-border text-foreground"
-                      : "bg-cyan-500/10 border-cyan-500/20 text-cyan-600"
-                  )}>
-                    {msg.role === "user" ? <div className="text-xs font-bold">You</div> : <Sparkles size={16} />}
-                  </div>
-
-                  {/* Message Content */}
-                  <div className={cn(
-                    "flex flex-col gap-2 max-w-[85%]",
-                    msg.role === "user" ? "items-end" : "items-start"
-                  )}>
-                    <div className="font-medium text-sm text-muted-foreground mb-1">
-                      {msg.role === "user" ? "You" : "Assistant"}
-                    </div>
-
-                    {/* Status at TOP of message */}
-                    {msg.role === "assistant" && (phase || hasActivities) && isStreaming && isLastAssistant && (
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        {phase && (
-                          <StreamingStatus phase={phase} />
-                        )}
-                        {hasActivities && msg.activities
-                          .filter(a => a !== 'writing') // Hide writing state as it is implied
-                          .slice(-4).map((state) => (
-                            <span
-                              key={state}
-                              className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                            >
-                              {activityLabels?.[state] || state}
-                            </span>
-                          ))}
-                      </div>
-                    )}
-
-                    <div className={cn(
-                      "text-base leading-relaxed text-foreground fade-in-text", // Added fade-in class
-                      msg.role === "user" && "text-right"
-                    )}>
-                      {msg.role === "assistant" ? (
-                        <MarkdownContent content={msg.content} />
-                      ) : (
-                        msg.content
-                      )}
-                      {isStreaming && isLastAssistant && (
-                        <span className="inline-block w-2 h-4 bg-cyan-400 animate-pulse ml-1 align-bottom rounded-sm" />
-                      )}
-                    </div>
-
-                    {/* (Status block removed from bottom) */}
-
-                    {/* Assistant Extras: Sources, Related */}
-                    {msg.role === "assistant" && msg.content && !isStreaming && (
-                      <div className="mt-4 space-y-4 w-full">
-                        {/* Sources */}
-                        {sources.length > 0 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {sources.slice(0, 4).map((url, i) => (
-                              <a
-                                key={i}
-                                href={url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-2 p-2 rounded-lg bg-foreground/5 border border-border hover:bg-foreground/8 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                              >
-                                <div className="w-5 h-5 rounded bg-foreground/5 flex items-center justify-center text-muted-foreground group-hover:text-cyan-600">
-                                  <Globe size={12} />
-                                </div>
-                                <span className="text-xs text-muted-foreground truncate flex-1">{new URL(url).hostname}</span>
-                              </a>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-2 pt-2">
-                          <ActionBtn
-                            icon={<Copy size={14} />}
-                            label="Copy"
-                            onClick={() => navigator.clipboard?.writeText(msg.content || "")}
-                          />
-                          <ActionBtn
-                            icon={<RefreshCw size={14} />}
-                            label="Regenerate"
-                            onClick={() => {
-                              const prompt = lastUserBefore?.content || "";
-                              if (!prompt) return;
-                              onMessageChange(prompt);
-                              setTimeout(() => onSend(), 50);
-                            }}
-                          />
-                          <div className="flex-1" />
-                          <ActionBtn icon={<ThumbsUp size={14} />} label="Like" />
-                          <ActionBtn icon={<ThumbsDown size={14} />} label="Dislike" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )
+                  msg={msg}
+                  index={index}
+                  isLastAssistant={isLastAssistant}
+                  isStreaming={isStreaming}
+                  showSearching={showSearching}
+                  activityLabels={activityLabels}
+                  activeSession={activeSession}
+                  onMessageChange={onMessageChange}
+                  onSend={onSend}
+                />
+              );
             })}
 
             {/* Follow-ups */}
@@ -773,16 +807,7 @@ function StreamingStatus({ phase }) {
   } else if (phase === "reasoning") {
     label = "Reasoning";
     dotColor = "bg-amber-400";
-  } else if (phase === "reasoning") {
-    label = "Reasoning";
-    dotColor = "bg-amber-400";
-  } else if (phase === "thinking") {
-    label = "Thinking";
-    dotColor = "bg-cyan-400";
   }
-
-  // Auto-show searching if thinking takes too long handled by parent logic usually, 
-  // but here we just render what is passed. 
 
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
