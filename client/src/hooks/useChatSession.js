@@ -183,6 +183,10 @@ export function useChatSession() {
     return [...sessions].sort((a, b) => b.createdAt - a.createdAt);
   }, [sessions]);
 
+  const selectedModel = useMemo(() => {
+    return models.find((m) => m.id === selectedModelId) || null;
+  }, [models, selectedModelId]);
+
   function updateSession(sessionId, updater) {
     setSessions((prev) =>
       prev.map((item) =>
@@ -396,6 +400,7 @@ export function useChatSession() {
     isModelsLoading,
     modelsError,
     reloadModels: () => setModelsReloadToken((prev) => prev + 1),
+    selectedModel,
     mode,
     setMode,
     sessions,

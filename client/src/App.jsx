@@ -26,6 +26,7 @@ export default function App() {
     models,
     selectedModelId,
     setSelectedModelId,
+    selectedModel,
     modelsIssues,
     isModelsLoading,
     modelsError,
@@ -127,6 +128,7 @@ export default function App() {
           activityLabels={ACTIVITY_LABELS}
           toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           sidebarOpen={sidebarOpen}
+          features={selectedModel?.features || { uploads: false, stt: false }}
         />
       </main>
     </div>

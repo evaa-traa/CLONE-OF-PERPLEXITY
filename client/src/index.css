@@ -81,3 +81,69 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-foreground/15 rounded-full hover:bg-foreground/25 transition-colors;
 }
+
+/* Markdown Content Styling */
+.markdown-content {
+  line-height: 1.75;
+}
+
+.markdown-content > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-content > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Ordered list counter styling */
+.markdown-content ol {
+  counter-reset: list-item;
+}
+
+.markdown-content ol > li {
+  counter-increment: list-item;
+}
+
+.markdown-content ol > li > span:first-child {
+  content: counter(list-item) ".";
+}
+
+/* Code block syntax highlighting enhancement */
+.markdown-content pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+/* Table row striping */
+.markdown-content table tbody tr:nth-child(even) {
+  background-color: hsla(var(--foreground) / 0.02);
+}
+
+/* Smooth transitions for interactive elements */
+.markdown-content a,
+.markdown-content button,
+.markdown-content tr {
+  transition: all 0.15s ease;
+}
+
+/* Image styling in markdown */
+.markdown-content img {
+  @apply rounded-lg my-4 max-w-full h-auto border border-border;
+}
+
+/* Definition list styling */
+.markdown-content dl {
+  @apply my-4;
+}
+
+.markdown-content dt {
+  @apply font-semibold text-foreground mt-2;
+}
+
+.markdown-content dd {
+  @apply ml-4 text-foreground/80;
+}
+

@@ -176,22 +176,9 @@ async function fetchCapabilities(model) {
 }
 
 function buildPrompt(message, mode) {
-  const formatting = [
-    "Format your response in Markdown.",
-    "Use headings, bullet points, and tables when helpful.",
-    "Do not include raw tool JSON or internal tool logs in the final answer."
-  ].join("\n");
-  if (mode === "research") {
-    return [
-      formatting,
-      "You are a research assistant.",
-      "Provide a structured answer with sections: Summary, Key Points, and Sources.",
-      "If you do not have sources, write: Sources: No sources provided.",
-      "Include 3 follow-up questions under a Follow-up section.",
-      `User: ${message}`
-    ].join("\n");
-  }
-  return [formatting, `User: ${message}`].join("\n");
+  // Return raw user message only - all prompts/formatting are configured in Flowise
+  // The mode parameter is kept for future use but not used to modify the message
+  return message;
 }
 
 async function streamFlowise({

@@ -12,7 +12,10 @@ import {
   Copy,
   ThumbsUp,
   ThumbsDown,
-  RefreshCw
+  RefreshCw,
+  Paperclip,
+  Mic,
+  X
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -50,21 +53,191 @@ const markdownSchema = {
 };
 
 function MarkdownContent({ content }) {
+  const [copiedCode, setCopiedCode] = React.useState(null);
+
+  const handleCopyCode = (code, index) => {
+    navigator.clipboard?.writeText(code);
+    setCopiedCode(index);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
   return (
-    <div className="prose prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-headings:font-semibold prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-foreground/5 prose-pre:border prose-pre:border-border prose-pre:rounded-lg prose-table:my-3 prose-th:border prose-th:border-border prose-td:border prose-td:border-border prose-th:bg-foreground/5 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1">
+    <div className="markdown-content prose prose-invert max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, markdownSchema]]}
         transformLinkUri={sanitizeLinkUrl}
         transformImageUri={sanitizeLinkUrl}
         components={{
+          // Enhanced link rendering
           a: (props) => (
             <a
               {...props}
               target="_blank"
               rel="noopener noreferrer"
               href={sanitizeLinkUrl(props.href)}
+              className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-400 transition-colors"
             />
+          ),
+          // Enhanced code block with copy button
+          pre: ({ children, ...props }) => {
+            const codeContent = React.Children.toArray(children)
+              .map(child => {
+                if (React.isValidElement(child) && child.props?.children) {
+                  return typeof child.props.children === 'string'
+                    ? child.props.children
+                    : '';
+                }
+                return '';
+              })
+              .join('');
+            const index = Math.random().toString(36).substr(2, 9);
+
+            return (
+              <div className="relative group my-4">
+                <pre
+                  {...props}
+                  className="bg-[#1e1e2e] border border-border rounded-lg p-4 overflow-x-auto text-sm"
+                >
+                  {children}
+                </pre>
+                <button
+                  onClick={() => handleCopyCode(codeContent, index)}
+                  className="absolute top-2 right-2 p-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all"
+                  aria-label="Copy code"
+                >
+                  {copiedCode === index ? (
+                    <span className="text-xs text-green-400">Copied!</span>
+                  ) : (
+                    <Copy size={14} />
+                  )}
+                </button>
+              </div>
+            );
+          },
+          // Inline code styling
+          code: ({ inline, className, children, ...props }) => {
+            if (inline) {
+              return (
+                <code
+                  className="px-1.5 py-0.5 rounded-md bg-foreground/10 text-cyan-300 text-sm font-mono"
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
+            return (
+              <code className={cn("text-foreground/90 font-mono text-sm", className)} {...props}>
+                {children}
+              </code>
+            );
+          },
+          // Enhanced table styling
+          table: ({ children, ...props }) => (
+            <div className="my-4 overflow-x-auto rounded-lg border border-border">
+              <table className="min-w-full divide-y divide-border" {...props}>
+                {children}
+              </table>
+            </div>
+          ),
+          thead: ({ children, ...props }) => (
+            <thead className="bg-foreground/5" {...props}>
+              {children}
+            </thead>
+          ),
+          th: ({ children, ...props }) => (
+            <th
+              className="px-4 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider border-r border-border last:border-r-0"
+              {...props}
+            >
+              {children}
+            </th>
+          ),
+          td: ({ children, ...props }) => (
+            <td
+              className="px-4 py-3 text-sm text-foreground/80 border-r border-border last:border-r-0"
+              {...props}
+            >
+              {children}
+            </td>
+          ),
+          tr: ({ children, ...props }) => (
+            <tr
+              className="border-b border-border last:border-b-0 hover:bg-foreground/5 transition-colors"
+              {...props}
+            >
+              {children}
+            </tr>
+          ),
+          // Enhanced list styling
+          ul: ({ children, ...props }) => (
+            <ul className="my-3 ml-1 space-y-2 list-none" {...props}>
+              {children}
+            </ul>
+          ),
+          ol: ({ children, ...props }) => (
+            <ol className="my-3 ml-1 space-y-2 list-none counter-reset-item" {...props}>
+              {children}
+            </ol>
+          ),
+          li: ({ children, ordered, ...props }) => (
+            <li
+              className="relative pl-6 text-foreground/90 before:absolute before:left-0 before:text-cyan-400 before:font-medium"
+              style={{
+                '--bullet': ordered ? 'counter(item) "."' : '"•"'
+              }}
+              {...props}
+            >
+              <span className="absolute left-0 text-cyan-400">•</span>
+              {children}
+            </li>
+          ),
+          // Enhanced heading styling
+          h1: ({ children, ...props }) => (
+            <h1 className="text-2xl font-bold text-foreground mt-6 mb-4 pb-2 border-b border-border" {...props}>
+              {children}
+            </h1>
+          ),
+          h2: ({ children, ...props }) => (
+            <h2 className="text-xl font-semibold text-foreground mt-5 mb-3" {...props}>
+              {children}
+            </h2>
+          ),
+          h3: ({ children, ...props }) => (
+            <h3 className="text-lg font-semibold text-foreground mt-4 mb-2" {...props}>
+              {children}
+            </h3>
+          ),
+          // Paragraph styling
+          p: ({ children, ...props }) => (
+            <p className="my-3 text-foreground/90 leading-relaxed" {...props}>
+              {children}
+            </p>
+          ),
+          // Bold and italic
+          strong: ({ children, ...props }) => (
+            <strong className="font-bold text-foreground" {...props}>
+              {children}
+            </strong>
+          ),
+          em: ({ children, ...props }) => (
+            <em className="italic text-foreground/90" {...props}>
+              {children}
+            </em>
+          ),
+          // Blockquote styling
+          blockquote: ({ children, ...props }) => (
+            <blockquote
+              className="my-4 pl-4 border-l-4 border-cyan-500 bg-cyan-500/5 py-2 pr-4 rounded-r-lg italic text-foreground/80"
+              {...props}
+            >
+              {children}
+            </blockquote>
+          ),
+          // Horizontal rule
+          hr: (props) => (
+            <hr className="my-6 border-t border-border" {...props} />
           )
         }}
       >
@@ -105,7 +278,8 @@ export default function ChatArea({
   onSelectFollowUp,
   activityLabels,
   toggleSidebar,
-  sidebarOpen
+  sidebarOpen,
+  features = { uploads: false, stt: false }
 }) {
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -164,6 +338,7 @@ export default function ChatArea({
                     onSend={onSend}
                     disabled={isStreaming}
                     isHero={true}
+                    features={features}
                   />
                 </div>
               </div>
@@ -210,114 +385,115 @@ export default function ChatArea({
                 }
               }
               return (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                key={msg.id || index}
-                className={cn(
-                  "flex gap-4",
-                  msg.role === "user" ? "flex-row-reverse" : "flex-row"
-                )}
-              >
-                {/* Avatar */}
-                <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
-                  msg.role === "user"
-                    ? "bg-foreground/5 border-border text-foreground"
-                    : "bg-cyan-500/10 border-cyan-500/20 text-cyan-600"
-                )}>
-                  {msg.role === "user" ? <div className="text-xs font-bold">You</div> : <Sparkles size={16} />}
-                </div>
-
-                {/* Message Content */}
-                <div className={cn(
-                  "flex flex-col gap-2 max-w-[85%]",
-                  msg.role === "user" ? "items-end" : "items-start"
-                )}>
-                  <div className="font-medium text-sm text-muted-foreground mb-1">
-                    {msg.role === "user" ? "You" : "Assistant"}
-                  </div>
-
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  key={msg.id || index}
+                  className={cn(
+                    "flex gap-4",
+                    msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                  )}
+                >
+                  {/* Avatar */}
                   <div className={cn(
-                    "text-base leading-relaxed text-foreground",
-                    msg.role === "user" && "text-right"
+                    "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
+                    msg.role === "user"
+                      ? "bg-foreground/5 border-border text-foreground"
+                      : "bg-cyan-500/10 border-cyan-500/20 text-cyan-600"
                   )}>
-                    {msg.role === "assistant" ? (
-                      <MarkdownContent content={msg.content} />
-                    ) : (
-                      msg.content
-                    )}
-                    {isStreaming && isLastAssistant && (
-                      <span className="inline-block w-2 h-4 bg-cyan-400 animate-pulse ml-1 align-bottom rounded-sm" />
-                    )}
+                    {msg.role === "user" ? <div className="text-xs font-bold">You</div> : <Sparkles size={16} />}
                   </div>
 
-                  {msg.role === "assistant" && (phase || hasActivities) && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {phase && (
-                        <StreamingStatus phase={phase} />
-                      )}
-                      {hasActivities && msg.activities.slice(-4).map((state) => (
-                        <span
-                          key={state}
-                          className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                        >
-                          {activityLabels?.[state] || state}
-                        </span>
-                      ))}
+                  {/* Message Content */}
+                  <div className={cn(
+                    "flex flex-col gap-2 max-w-[85%]",
+                    msg.role === "user" ? "items-end" : "items-start"
+                  )}>
+                    <div className="font-medium text-sm text-muted-foreground mb-1">
+                      {msg.role === "user" ? "You" : "Assistant"}
                     </div>
-                  )}
 
-                  {/* Assistant Extras: Sources, Related */}
-                  {msg.role === "assistant" && msg.content && !isStreaming && (
-                    <div className="mt-4 space-y-4 w-full">
-                      {/* Sources */}
-                      {sources.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {sources.slice(0, 4).map((url, i) => (
-                            <a
-                              key={i}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 p-2 rounded-lg bg-foreground/5 border border-border hover:bg-foreground/8 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                            >
-                              <div className="w-5 h-5 rounded bg-foreground/5 flex items-center justify-center text-muted-foreground group-hover:text-cyan-600">
-                                <Globe size={12} />
-                              </div>
-                              <span className="text-xs text-muted-foreground truncate flex-1">{new URL(url).hostname}</span>
-                            </a>
-                          ))}
-                        </div>
+                    <div className={cn(
+                      "text-base leading-relaxed text-foreground",
+                      msg.role === "user" && "text-right"
+                    )}>
+                      {msg.role === "assistant" ? (
+                        <MarkdownContent content={msg.content} />
+                      ) : (
+                        msg.content
                       )}
+                      {isStreaming && isLastAssistant && (
+                        <span className="inline-block w-2 h-4 bg-cyan-400 animate-pulse ml-1 align-bottom rounded-sm" />
+                      )}
+                    </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-2 pt-2">
-                        <ActionBtn
-                          icon={<Copy size={14} />}
-                          label="Copy"
-                          onClick={() => navigator.clipboard?.writeText(msg.content || "")}
-                        />
-                        <ActionBtn
-                          icon={<RefreshCw size={14} />}
-                          label="Regenerate"
-                          onClick={() => {
-                            const prompt = lastUserBefore?.content || "";
-                            if (!prompt) return;
-                            onMessageChange(prompt);
-                            setTimeout(() => onSend(), 50);
-                          }}
-                        />
-                        <div className="flex-1" />
-                        <ActionBtn icon={<ThumbsUp size={14} />} label="Like" />
-                        <ActionBtn icon={<ThumbsDown size={14} />} label="Dislike" />
+                    {msg.role === "assistant" && (phase || hasActivities) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {phase && (
+                          <StreamingStatus phase={phase} />
+                        )}
+                        {hasActivities && msg.activities.slice(-4).map((state) => (
+                          <span
+                            key={state}
+                            className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          >
+                            {activityLabels?.[state] || state}
+                          </span>
+                        ))}
                       </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )})}
+                    )}
+
+                    {/* Assistant Extras: Sources, Related */}
+                    {msg.role === "assistant" && msg.content && !isStreaming && (
+                      <div className="mt-4 space-y-4 w-full">
+                        {/* Sources */}
+                        {sources.length > 0 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {sources.slice(0, 4).map((url, i) => (
+                              <a
+                                key={i}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 p-2 rounded-lg bg-foreground/5 border border-border hover:bg-foreground/8 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                              >
+                                <div className="w-5 h-5 rounded bg-foreground/5 flex items-center justify-center text-muted-foreground group-hover:text-cyan-600">
+                                  <Globe size={12} />
+                                </div>
+                                <span className="text-xs text-muted-foreground truncate flex-1">{new URL(url).hostname}</span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 pt-2">
+                          <ActionBtn
+                            icon={<Copy size={14} />}
+                            label="Copy"
+                            onClick={() => navigator.clipboard?.writeText(msg.content || "")}
+                          />
+                          <ActionBtn
+                            icon={<RefreshCw size={14} />}
+                            label="Regenerate"
+                            onClick={() => {
+                              const prompt = lastUserBefore?.content || "";
+                              if (!prompt) return;
+                              onMessageChange(prompt);
+                              setTimeout(() => onSend(), 50);
+                            }}
+                          />
+                          <div className="flex-1" />
+                          <ActionBtn icon={<ThumbsUp size={14} />} label="Like" />
+                          <ActionBtn icon={<ThumbsDown size={14} />} label="Dislike" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )
+            })}
 
             {/* Follow-ups */}
             {!isStreaming && followUps.length > 0 && (
@@ -357,6 +533,7 @@ export default function ChatArea({
                 onChange={onMessageChange}
                 onSend={onSend}
                 disabled={isStreaming}
+                features={features}
               />
             </div>
             <p className="text-center text-xs text-muted-foreground/70 mt-3">
@@ -369,7 +546,13 @@ export default function ChatArea({
   );
 }
 
-function SearchInput({ value, onChange, onSend, disabled, isHero = false }) {
+function SearchInput({ value, onChange, onSend, disabled, isHero = false, features = {} }) {
+  const fileInputRef = React.useRef(null);
+  const [isRecording, setIsRecording] = React.useState(false);
+  const [selectedFiles, setSelectedFiles] = React.useState([]);
+  const mediaRecorderRef = React.useRef(null);
+  const audioChunksRef = React.useRef([]);
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -379,40 +562,163 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false }) {
     }
   };
 
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      // Start recording
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const audioFile = new File([audioBlob], 'voice-recording.webm', { type: 'audio/webm' });
+          setSelectedFiles(prev => [...prev, audioFile]);
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+      } catch (err) {
+        console.error('Microphone access denied:', err);
+        alert('Microphone access was denied. Please enable it in your browser settings.');
+      }
+    }
+  };
+
   return (
-    <>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
-        aria-label={isHero ? "Ask anything" : "Message"}
-        className={cn(
-          "flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder:text-muted-foreground resize-none py-3 px-3 custom-scrollbar",
-          isHero ? "text-lg md:text-xl font-medium" : "text-sm md:text-base"
+    <div className="flex flex-col w-full gap-2">
+      {/* Selected files preview */}
+      {selectedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-3 pt-2">
+          {selectedFiles.map((file, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-2 bg-foreground/10 rounded-lg px-2 py-1 text-xs text-foreground/80"
+            >
+              <span className="truncate max-w-[150px]">{file.name}</span>
+              <button
+                onClick={() => removeFile(index)}
+                className="p-0.5 hover:bg-foreground/10 rounded"
+                aria-label={`Remove ${file.name}`}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center w-full">
+        {/* File upload button */}
+        {features.uploads && (
+          <>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.txt,.csv,.json"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              className={cn(
+                "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ml-1",
+                disabled
+                  ? "text-muted-foreground/50 cursor-not-allowed"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+              )}
+              aria-label="Attach file"
+              title="Attach file"
+            >
+              <Paperclip size={18} />
+            </button>
+          </>
         )}
-        rows={isHero ? 1 : 1}
-        style={{ minHeight: isHero ? '52px' : '44px' }}
-      />
-      <div className="flex items-center gap-2 pr-2">
-        <button
-          onClick={onSend}
-          disabled={!value.trim() || disabled}
+
+        {/* Speech-to-text button */}
+        {features.stt && (
+          <button
+            onClick={handleMicClick}
+            disabled={disabled}
+            className={cn(
+              "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              isRecording
+                ? "text-red-500 bg-red-500/10 animate-pulse"
+                : disabled
+                  ? "text-muted-foreground/50 cursor-not-allowed"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+            )}
+            aria-label={isRecording ? "Stop recording" : "Start voice input"}
+            title={isRecording ? "Stop recording" : "Voice input"}
+          >
+            <Mic size={18} />
+          </button>
+        )}
+
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
+          aria-label={isHero ? "Ask anything" : "Message"}
           className={cn(
-            "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-            value.trim() && !disabled
-              ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
-              : "bg-foreground/5 text-muted-foreground cursor-not-allowed"
+            "flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder:text-muted-foreground resize-none py-3 px-3 custom-scrollbar",
+            isHero ? "text-lg md:text-xl font-medium" : "text-sm md:text-base"
           )}
-        >
-          {disabled ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <ArrowRight size={20} />
-          )}
-        </button>
+          rows={isHero ? 1 : 1}
+          style={{ minHeight: isHero ? '52px' : '44px' }}
+        />
+        <div className="flex items-center gap-2 pr-2">
+          <button
+            onClick={onSend}
+            disabled={!value.trim() || disabled}
+            className={cn(
+              "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              value.trim() && !disabled
+                ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
+                : "bg-foreground/5 text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            {disabled ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <ArrowRight size={20} />
+            )}
+          </button>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
