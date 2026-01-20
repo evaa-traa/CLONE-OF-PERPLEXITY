@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   SendHorizontal,
@@ -16,6 +19,59 @@ import { twMerge } from "tailwind-merge";
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
+}
+
+const allowedLinkProtocols = new Set(["http:", "https:", "mailto:", "tel:"]);
+
+function sanitizeLinkUrl(url) {
+  if (typeof url !== "string" || !url) return "";
+  const trimmed = url.trim();
+  if (trimmed.startsWith("#")) return trimmed;
+  try {
+    const parsed = new URL(trimmed, "https://local.invalid");
+    if (allowedLinkProtocols.has(parsed.protocol)) return trimmed;
+    return "";
+  } catch (error) {
+    return "";
+  }
+}
+
+const markdownSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    a: [
+      ...(defaultSchema.attributes?.a || []),
+      ["target", "_blank"],
+      ["rel", "noopener noreferrer"]
+    ],
+    code: [...(defaultSchema.attributes?.code || []), "className"]
+  }
+};
+
+function MarkdownContent({ content }) {
+  return (
+    <div className="prose prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-headings:font-semibold prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:underline prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-foreground/5 prose-pre:border prose-pre:border-border prose-pre:rounded-lg prose-table:my-3 prose-th:border prose-th:border-border prose-td:border prose-td:border-border prose-th:bg-foreground/5 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSanitize, markdownSchema]]}
+        transformLinkUri={sanitizeLinkUrl}
+        transformImageUri={sanitizeLinkUrl}
+        components={{
+          a: (props) => (
+            <a
+              {...props}
+              target="_blank"
+              rel="noopener noreferrer"
+              href={sanitizeLinkUrl(props.href)}
+            />
+          )
+        }}
+      >
+        {content || ""}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 function extractSources(text) {
@@ -187,7 +243,11 @@ export default function ChatArea({
                     "text-base leading-relaxed text-foreground",
                     msg.role === "user" && "text-right"
                   )}>
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <MarkdownContent content={msg.content} />
+                    ) : (
+                      msg.content
+                    )}
                     {isStreaming && isLastAssistant && (
                       <span className="inline-block w-2 h-4 bg-cyan-400 animate-pulse ml-1 align-bottom rounded-sm" />
                     )}

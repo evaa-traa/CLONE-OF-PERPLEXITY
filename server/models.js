@@ -15,10 +15,26 @@ function normalizeId(id) {
     .replace(/`/g, "");
 }
 
+function normalizeHeaderName(value) {
+  if (typeof value !== "string") return "";
+  return value
+    .trim()
+    .replace(/^[\s'"`\u2018\u2019\u201C\u201D]+|[\s'"`\u2018\u2019\u201C\u201D]+$/g, "")
+    .replace(/`/g, "");
+}
+
+function normalizeHeaderValue(value) {
+  if (typeof value !== "string") return "";
+  return value
+    .trim()
+    .replace(/^[\s'"`\u2018\u2019\u201C\u201D]+|[\s'"`\u2018\u2019\u201C\u201D]+$/g, "")
+    .replace(/`/g, "");
+}
+
 function collectModelIndices(env) {
   const indices = new Set();
   for (const key of Object.keys(env || {})) {
-    const match = /^MODEL_(\d+)_(NAME|ID|HOST)$/.exec(key);
+    const match = /^MODEL_(\d+)_(NAME|ID|HOST|API_KEY|AUTH_HEADER|AUTH_VALUE)$/.exec(key);
     if (match) {
       indices.add(Number(match[1]));
     }
@@ -47,6 +63,9 @@ function loadModelsFromEnvDetailed(env) {
       }
     }
     const host = normalizeHost(env[`MODEL_${index}_HOST`]);
+    const apiKey = normalizeHeaderValue(env[`MODEL_${index}_API_KEY`]);
+    const authHeader = normalizeHeaderName(env[`MODEL_${index}_AUTH_HEADER`]);
+    const authValue = normalizeHeaderValue(env[`MODEL_${index}_AUTH_VALUE`]);
 
     const missing = [];
     if (!id) missing.push(`MODEL_${index}_ID`);
@@ -57,7 +76,7 @@ function loadModelsFromEnvDetailed(env) {
       continue;
     }
 
-    models.push({ name, id, host, index });
+    models.push({ name, id, host, index, apiKey, authHeader, authValue });
   }
 
   if (models.length === 0) {

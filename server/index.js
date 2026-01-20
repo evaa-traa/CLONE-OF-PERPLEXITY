@@ -25,9 +25,13 @@ function sendEvent(res, event, data) {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-function getFlowiseHeaders() {
+function getFlowiseHeaders(model) {
   const extraHeaders = {};
-  if (process.env.FLOWISE_AUTH_HEADER && process.env.FLOWISE_AUTH_VALUE) {
+  if (model?.authHeader && model?.authValue) {
+    extraHeaders[model.authHeader] = model.authValue;
+  } else if (model?.apiKey) {
+    extraHeaders["Authorization"] = `Bearer ${model.apiKey}`;
+  } else if (process.env.FLOWISE_AUTH_HEADER && process.env.FLOWISE_AUTH_VALUE) {
     extraHeaders[process.env.FLOWISE_AUTH_HEADER] = process.env.FLOWISE_AUTH_VALUE;
   } else if (process.env.FLOWISE_API_KEY) {
     extraHeaders["Authorization"] = `Bearer ${process.env.FLOWISE_API_KEY}`;
@@ -111,7 +115,7 @@ async function fetchCapabilities(model) {
   const urls = [
     {
       url: `${baseHost}/api/v1/chatflows/${model.id}`,
-      headers: { "Content-Type": "application/json", ...getFlowiseHeaders() }
+      headers: { "Content-Type": "application/json", ...getFlowiseHeaders(model) }
     },
     {
       url: `${baseHost}/api/v1/public-chatflows/${model.id}`,
@@ -194,7 +198,7 @@ async function streamFlowise({
   console.log(`[Flowise] Fetching URL: ${url}`);
   console.log(`[Flowise] Payload:`, JSON.stringify(payload));
 
-  const extraHeaders = getFlowiseHeaders();
+  const extraHeaders = getFlowiseHeaders(model);
 
   const response = await fetch(url, {
     method: "POST",
@@ -441,7 +445,7 @@ app.post("/chat", async (req, res) => {
 
       console.log(`[Flowise Fallback] Fetching URL: ${url}`);
 
-      const extraHeaders = getFlowiseHeaders();
+      const extraHeaders = getFlowiseHeaders(model);
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -510,7 +514,7 @@ app.post("/predict", async (req, res) => {
     question: buildPrompt(question, mode)
   };
 
-  const extraHeaders = getFlowiseHeaders();
+  const extraHeaders = getFlowiseHeaders(model);
 
   try {
     const response = await fetch(url, {
