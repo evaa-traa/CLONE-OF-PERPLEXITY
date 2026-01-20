@@ -167,6 +167,7 @@ app.post("/chat", async (req, res) => {
   });
 
   try {
+    // Attempt streaming first
     await streamFlowise({
       res,
       model,
@@ -176,7 +177,43 @@ app.post("/chat", async (req, res) => {
     });
     sendEvent(res, "done", { ok: true });
   } catch (error) {
-    sendEvent(res, "error", { message: error.message });
+    console.error("[Chat] Streaming failed, trying non-streaming fallback:", error.message);
+
+    try {
+      // Fallback to non-streaming (user's working snippet format)
+      const url = `${model.host}/api/v1/prediction/${model.id}`;
+      const payload = {
+        question: buildPrompt(message, mode)
+      };
+
+      console.log(`[Flowise Fallback] Fetching URL: ${url}`);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`Flowise fallback error ${response.status}: ${text}`);
+      }
+
+      const result = await response.json();
+      console.log("[Flowise Fallback] Success:", JSON.stringify(result).slice(0, 100) + "...");
+
+      // Extract text from result (Flowise non-streaming returns { text: "..." } or similar)
+      const finalContent = result.text || result.answer || result.output || result.message || JSON.stringify(result);
+
+      sendEvent(res, "token", { text: finalContent });
+      sendEvent(res, "done", { ok: true });
+    } catch (fallbackError) {
+      console.error("[Chat] Fallback also failed:", fallbackError.message);
+      sendEvent(res, "error", { message: fallbackError.message });
+    }
   } finally {
     clearActivities();
     res.end();
