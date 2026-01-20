@@ -57,7 +57,9 @@ async function streamFlowise({
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload),
-    signal: controller.signal // Ensure we use the controller signal explicitly
+    signal,
+    // Add a longer timeout for Hugging Face cold starts
+    duplex: 'half'
   }).catch((err) => {
     console.error("[Flowise] Fetch error:", err);
     throw new Error(`Failed to connect to Flowise: ${err.message}`);
@@ -226,9 +228,8 @@ app.post("/chat", async (req, res) => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload),
-        // For fallback, we'll use a fresh controller or no signal to be safe if the first failed due to a weird terminal signal state,
-        // but still respect the connection closing if we can.
-        signal: controller.signal
+        // For fallback, we'll use a fresh fetch without the same abort signal 
+        // to ensure it reaches Flowise even if the streaming connection had a glitch.
       });
 
       if (!response.ok) {
