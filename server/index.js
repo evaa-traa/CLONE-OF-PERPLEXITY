@@ -45,8 +45,7 @@ async function streamFlowise({
   const url = `${model.host}/api/v1/prediction/${model.id}`;
   const payload = {
     question: buildPrompt(message, mode),
-    streaming: true,
-    responseMode: "stream"
+    streaming: true
   };
 
   const response = await fetch(url, {
@@ -56,10 +55,14 @@ async function streamFlowise({
     },
     body: JSON.stringify(payload),
     signal
+  }).catch((err) => {
+    console.error("Flowise fetch error:", err);
+    throw new Error(`Failed to connect to Flowise: ${err.message}`);
   });
 
   if (!response.ok || !response.body) {
     const text = await response.text().catch(() => "");
+    console.error(`Flowise API error (${response.status}):`, text);
     throw new Error(`Flowise error ${response.status}: ${text}`);
   }
 

@@ -10,8 +10,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/chat": "http://localhost:3000",
-      "/models": "http://localhost:3000"
+      "/chat": "http://localhost:3001",
+      "/models": "http://localhost:3001"
     }
   },
   build: {

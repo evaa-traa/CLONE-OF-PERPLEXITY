@@ -235,7 +235,7 @@ export function useChatSession() {
           userMessage,
           {
             ...assistantMessage,
-            content: "Select a model to start chatting."
+            content: "No AI model selected or configured. Please check your .env configuration in the server folder."
           }
         ])
       }));
@@ -317,11 +317,11 @@ export function useChatSession() {
             messages: session.messages.map((msg) =>
               msg.id === assistantMessage.id
                 ? {
-                    ...msg,
-                    activities: Array.from(
-                      new Set([...(msg.activities || []), parsed.state])
-                    )
-                  }
+                  ...msg,
+                  activities: Array.from(
+                    new Set([...(msg.activities || []), parsed.state])
+                  )
+                }
                 : msg
             )
           }));
@@ -333,10 +333,10 @@ export function useChatSession() {
             messages: session.messages.map((msg) =>
               msg.id === assistantMessage.id
                 ? {
-                    ...msg,
-                    content:
-                      parsed.message || "Something went wrong. Please try again."
-                  }
+                  ...msg,
+                  content:
+                    parsed.message || "Something went wrong. Please try again."
+                }
                 : msg
             )
           }));
@@ -358,11 +358,11 @@ export function useChatSession() {
         messages: session.messages.map((msg) =>
           msg.id === assistantMessage.id
             ? {
-                ...msg,
-                content:
-                  error?.message ||
-                  "Something went wrong. Please try again."
-              }
+              ...msg,
+              content:
+                error?.message ||
+                "Something went wrong. Please try again."
+            }
             : msg
         )
       }));
