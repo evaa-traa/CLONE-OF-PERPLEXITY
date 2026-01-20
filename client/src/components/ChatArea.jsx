@@ -287,12 +287,16 @@ const MessageRow = React.memo(({
   // Determine phase for streaming messages
   let phase = null;
   if (isStreaming && isLastAssistant && msg.role === "assistant") {
+    // Show "thinking" immediately as the default starting state
     if (!hasActivities) {
       phase = showSearching ? "searching" : "thinking";
     } else if (msg.activities.includes("reasoning")) {
       phase = "reasoning";
     } else if (msg.activities.includes("searching")) {
       phase = "searching";
+    } else {
+      // Fallback to thinking if activities are present but none matches above
+      phase = "thinking";
     }
   }
 
@@ -580,9 +584,9 @@ export default function ChatArea({
 
       {/* Footer Input Area */}
       {!isEmpty && (
-        <div className="p-4 md:p-6 bg-background/95 z-20">
+        <div className="p-4 md:p-6 bg-background z-20">
           <div className="mx-auto max-w-3xl relative">
-            <div className="relative bg-background border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
+            <div className="relative bg-secondary/50 border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
