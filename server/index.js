@@ -48,6 +48,9 @@ async function streamFlowise({
     streaming: true
   };
 
+  console.log(`[Flowise] Fetching URL: ${url}`);
+  console.log(`[Flowise] Payload:`, JSON.stringify(payload));
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -56,15 +59,18 @@ async function streamFlowise({
     body: JSON.stringify(payload),
     signal
   }).catch((err) => {
-    console.error("Flowise fetch error:", err);
+    console.error("[Flowise] Fetch error:", err);
     throw new Error(`Failed to connect to Flowise: ${err.message}`);
   });
 
   if (!response.ok || !response.body) {
     const text = await response.text().catch(() => "");
-    console.error(`Flowise API error (${response.status}):`, text);
+    console.error(`[Flowise] API error (${response.status}):`, text);
     throw new Error(`Flowise error ${response.status}: ${text}`);
   }
+
+  const contentType = response.headers.get("content-type") || "";
+  console.log(`[Flowise] Connected. Content-Type: ${contentType}`);
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -190,4 +196,6 @@ app.get("*", (req, res, next) => {
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
+  const { models } = loadModelsFromEnvDetailed(process.env);
+  console.log(`Loaded models:`, JSON.stringify(models, null, 2));
 });

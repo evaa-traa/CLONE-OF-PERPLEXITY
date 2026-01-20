@@ -4,6 +4,9 @@
   "workspaces": [
     "client"
   ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "node server/index.js",
     "build": "npm --prefix client run build",

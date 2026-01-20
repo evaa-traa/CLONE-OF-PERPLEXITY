@@ -25,12 +25,11 @@ function loadModelsFromEnvDetailed(env) {
   }
 
   for (const index of indices) {
-    const name = env[`MODEL_${index}_NAME`];
+    const name = env[`MODEL_${index}_NAME`] || `Model ${index}`;
     const id = env[`MODEL_${index}_ID`];
     const host = normalizeHost(env[`MODEL_${index}_HOST`]);
 
     const missing = [];
-    if (!name) missing.push(`MODEL_${index}_NAME`);
     if (!id) missing.push(`MODEL_${index}_ID`);
     if (!host) missing.push(`MODEL_${index}_HOST`);
 
