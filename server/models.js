@@ -1,11 +1,18 @@
 function normalizeHost(host) {
   if (typeof host !== "string") return "";
-  return host.trim().replace(/^['"`]+|['"`]+$/g, "").replace(/\/$/, "");
+  return host
+    .trim()
+    .replace(/^[\s'"`\u2018\u2019\u201C\u201D]+|[\s'"`\u2018\u2019\u201C\u201D]+$/g, "")
+    .replace(/`/g, "")
+    .replace(/\/$/, "");
 }
 
 function normalizeId(id) {
   if (typeof id !== "string") return "";
-  return id.trim().replace(/^['"`]+|['"`]+$/g, "");
+  return id
+    .trim()
+    .replace(/^[\s'"`\u2018\u2019\u201C\u201D]+|[\s'"`\u2018\u2019\u201C\u201D]+$/g, "")
+    .replace(/`/g, "");
 }
 
 function collectModelIndices(env) {

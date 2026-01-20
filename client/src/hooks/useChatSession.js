@@ -355,6 +355,17 @@ export function useChatSession() {
       }
     } catch (error) {
       if (error?.name === "AbortError") {
+        updateSession(activeSession.id, (session) => ({
+          ...session,
+          messages: session.messages.map((msg) =>
+            msg.id === assistantMessage.id && !msg.content
+              ? {
+                ...msg,
+                content: "Connection was interrupted while contacting Flowise. Please try again."
+              }
+              : msg
+          )
+        }));
         setIsStreaming(false);
         return;
       }

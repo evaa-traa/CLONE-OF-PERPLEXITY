@@ -119,11 +119,22 @@ async function fetchCapabilities(model) {
       },
       signal: controller.signal
     });
+
     if (response.ok) {
       const data = await response.json().catch(() => null);
       if (data) {
         value = { ...deriveCapabilities(data), status: "ok" };
       }
+    } else {
+      value = {
+        uploads: false,
+        tts: false,
+        stt: false,
+        status:
+          response.status === 401 || response.status === 403
+            ? "unauthorized"
+            : `http_${response.status}`
+      };
     }
   } catch (error) {
     value = { uploads: false, tts: false, stt: false, status: "unknown" };
@@ -335,11 +346,16 @@ app.post("/chat", async (req, res) => {
     });
     sendEvent(res, "done", { ok: true });
   } catch (error) {
-    const isAbort = error.name === "AbortError" || error.message?.includes("aborted");
-    console.error(`[Chat] Streaming failed (Abort: ${isAbort}):`, error.message);
+    const clientAborted = controller.signal.aborted || req.aborted;
+    const isAbortError = error?.name === "AbortError";
+    console.error(
+      `[Chat] Streaming failed (ClientAborted: ${clientAborted}, AbortError: ${isAbortError}):`,
+      error?.message
+    );
 
-    if (isAbort && controller.signal.aborted) {
-      console.log("[Chat] Client disconnected, skipping fallback.");
+    if (clientAborted) {
+      sendEvent(res, "error", { message: "Request was cancelled before completion." });
+      sendEvent(res, "done", { ok: false, cancelled: true });
       return;
     }
 
