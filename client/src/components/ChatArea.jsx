@@ -498,7 +498,7 @@ export default function ChatArea({
             {/* Fake search bar for hero aesthetic - functionality is in the footer input though */}
             <div className="w-full max-w-2xl transform transition-all hover:scale-[1.01]">
               <div className="relative group">
-                <div className="relative bg-background border border-border rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
+                <div className="relative bg-zinc-800/80 border border-border rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
                   <SearchInput
                     value={message}
                     onChange={onMessageChange}
@@ -586,7 +586,7 @@ export default function ChatArea({
       {!isEmpty && (
         <div className="p-4 md:p-6 bg-background z-20">
           <div className="mx-auto max-w-3xl relative">
-            <div className="relative bg-secondary/50 border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
+            <div className="relative bg-zinc-800/80 border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}

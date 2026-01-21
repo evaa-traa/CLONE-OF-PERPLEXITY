@@ -84,11 +84,8 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen w-full overflow-hidden bg-background">
-      {/* Background Gradients */}
-      <div className="pointer-events-none absolute inset-0 flex justify-center overflow-hidden">
-        <div className="h-[500px] w-[500px] rounded-full bg-blue-500/20 blur-[120px] mix-blend-screen animate-float" style={{ animationDelay: '-2s' }} />
-        <div className="h-[600px] w-[600px] rounded-full bg-cyan-500/20 blur-[120px] mix-blend-screen animate-float" />
-      </div>
+      {/* Background Layer - Pure Neutral */}
+      <div className="pointer-events-none absolute inset-0 bg-background" />
 
       <ChatSidebar
         open={sidebarOpen}
