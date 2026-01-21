@@ -60,7 +60,7 @@ export default function ChatSidebar({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed left-0 top-0 bottom-0 z-50 w-[280px] border-r border-border bg-sidebar-bg flex flex-col p-4 shadow-2xl transition-colors duration-150"
+            className="fixed left-0 top-0 bottom-0 z-50 w-[280px] border-r border-border bg-background flex flex-col p-4 shadow-2xl"
           >
             {/* Header & Logo */}
             <div className="flex items-center justify-between mb-6 px-2">
@@ -84,7 +84,7 @@ export default function ChatSidebar({
             {/* New Chat Button */}
             <button
               onClick={onNewChat}
-              className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-foreground/5 hover:bg-sidebar-hover border border-border transition-all duration-150 mb-6 text-sm font-medium hover:shadow-lg hover:shadow-cyan-500/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-foreground/5 hover:bg-foreground/8 border border-border transition-all mb-6 text-sm font-medium hover:shadow-lg hover:shadow-cyan-500/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <div className="bg-cyan-500/20 p-1.5 rounded-lg text-cyan-400 group-hover:text-white group-hover:bg-cyan-500 transition-colors">
                 <Plus size={18} />
@@ -106,10 +106,10 @@ export default function ChatSidebar({
                     key={item.id}
                     onClick={() => onModeChange(item.id)}
                     className={cn(
-                      "flex items-center justify-center px-3 py-2 rounded-md text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                      "flex items-center justify-center px-3 py-2 rounded-md text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                       mode === item.id
                         ? "bg-foreground/10 text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover"
+                        : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
                     )}
                   >
                     {item.label}
@@ -132,7 +132,7 @@ export default function ChatSidebar({
               </div>
               <div className="relative">
                 <select
-                  className="w-full appearance-none bg-foreground/5 text-foreground text-sm rounded-lg pl-3 pr-8 py-2.5 border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-all duration-150 hover:bg-sidebar-hover disabled:opacity-60"
+                  className="w-full appearance-none bg-foreground/5 text-foreground text-sm rounded-lg pl-3 pr-8 py-2.5 border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-all hover:bg-foreground/8 disabled:opacity-60"
                   value={selectedModelId}
                   onChange={(e) => onSelectModel(e.target.value)}
                   disabled={isModelsLoading || !models?.length}
@@ -217,10 +217,10 @@ export default function ChatSidebar({
                       key={session.id}
                       onClick={() => onSelectSession(session.id)}
                       className={cn(
-                        "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                        "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                         activeSessionId === session.id
                           ? "bg-foreground/10 text-foreground shadow-sm border border-border"
-                          : "text-muted-foreground hover:bg-sidebar-hover hover:text-foreground"
+                          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
                       )}
                     >
                       <MessageSquare size={16} className={cn(
@@ -241,14 +241,14 @@ export default function ChatSidebar({
             <div className="pt-4 mt-4 border-t border-border space-y-2">
               <button
                 onClick={onClearHistory}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-150 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <Trash2 size={16} className="group-hover:animate-bounce" />
                 <span>Clear History</span>
               </button>
               <button
                 onClick={onToggleTheme}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-hover hover:text-foreground transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
                 <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>

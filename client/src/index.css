@@ -4,39 +4,28 @@
 
 @layer base {
   :root {
-    /* ChatGPT Dark Mode */
-    --background: 222.2 11.1% 23.1%;
-    /* #343541 - Chat BG */
-    --foreground: 210 20% 93.7%;
-    /* #ECECF1 - Text Primary */
-    --sidebar-bg: 220 2.4% 13.1%;
-    /* #202123 */
-    --sidebar-hover: 225 4.1% 18%;
-    /* #2A2B2E */
-    --user-bubble: 231 10.4% 29.8%;
-    /* #444654 */
-    --input-bg: 235 10.7% 28.2%;
-    /* #40414F */
-    --text-placeholder: 240 7.3% 59.2%;
-    /* #8E8EA0 */
-
-    --card: 222.2 11.1% 23.1%;
-    --card-foreground: 210 20% 93.7%;
-    --popover: 222.2 11.1% 23.1%;
-    --popover-foreground: 210 20% 93.7%;
+    /* Modern Professional Dark Mode (Zinc/Slate) */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
     --primary: 217.2 91.2% 59.8%;
+    /* Keeping vibrant blue for actions */
     --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 231 10.4% 29.8%;
-    --secondary-foreground: 210 20% 93.7%;
-    --muted: 235 10.7% 28.2%;
-    --muted-foreground: 240 7.3% 59.2%;
-    --accent: 225 4.1% 18%;
-    --accent-foreground: 210 20% 93.7%;
+    --secondary: 240 3.7% 15.9%;
+    /* Distinct neutral gray for inputs/buttons */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 93.7%;
-    --border: 0 0% 100% / 0.05;
-    --input: 0 0% 100% / 0.05;
-    --ring: 0 0% 100% / 0.12;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
   }
 
   .light {
@@ -73,8 +62,7 @@
     overflow-x: hidden;
     width: 100%;
     position: relative;
-    line-height: 1.65;
-    @apply bg-background text-foreground antialiased selection:bg-cyan-500/30 selection:text-cyan-200 transition-all duration-150 ease-in-out;
+    @apply bg-background text-foreground antialiased selection:bg-cyan-500/30 selection:text-cyan-200;
   }
 }
 

@@ -20,11 +20,6 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        "sidebar-bg": "hsl(var(--sidebar-bg))",
-        "sidebar-hover": "hsl(var(--sidebar-hover))",
-        "user-bubble": "hsl(var(--user-bubble))",
-        "input-bg": "hsl(var(--input-bg))",
-        "text-placeholder": "hsl(var(--text-placeholder))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -53,9 +48,6 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-      },
-      maxWidth: {
-        'chat': '50rem',
       },
       keyframes: {
         "accordion-down": {
