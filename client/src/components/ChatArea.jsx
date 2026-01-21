@@ -62,7 +62,7 @@ function MarkdownContent({ content }) {
   };
 
   return (
-    <div className="markdown-content prose prose-invert max-w-none">
+    <div className="markdown-content prose prose-invert max-w-none leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, markdownSchema]]}
@@ -275,7 +275,7 @@ const MessageRow = React.memo(({
   index,
   isLastAssistant,
   isStreaming,
-  showSearching,
+  streamPhase,
   activityLabels,
   onMessageChange,
   onSend,
@@ -287,16 +287,15 @@ const MessageRow = React.memo(({
   // Determine phase for streaming messages
   let phase = null;
   if (isStreaming && isLastAssistant && msg.role === "assistant") {
-    // Show "thinking" immediately as the default starting state
+    // Override with manual cycle if no specific activity is reported yet
     if (!hasActivities) {
-      phase = showSearching ? "searching" : "thinking";
+      phase = streamPhase;
     } else if (msg.activities.includes("reasoning")) {
       phase = "reasoning";
     } else if (msg.activities.includes("searching")) {
       phase = "searching";
     } else {
-      // Fallback to thinking if activities are present but none matches above
-      phase = "thinking";
+      phase = streamPhase;
     }
   }
 
@@ -306,13 +305,13 @@ const MessageRow = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className={cn(
-        "flex gap-3 md:gap-4",
+        "flex gap-3 md:gap-4 w-full",
         msg.role === "user" ? "flex-row-reverse" : "flex-row"
       )}
     >
       {/* Avatar */}
       <div className={cn(
-        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
+        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border transition-all duration-150",
         msg.role === "user"
           ? "bg-foreground/5 border-border text-foreground"
           : "bg-cyan-500/10 border-cyan-500/20 text-cyan-600"
@@ -322,7 +321,7 @@ const MessageRow = React.memo(({
 
       {/* Message Content */}
       <div className={cn(
-        "flex flex-col gap-2 max-w-[88%] md:max-w-[85%]",
+        "flex flex-col gap-2 max-w-[75%]",
         msg.role === "user" ? "items-end" : "items-start"
       )}>
         <div className="font-medium text-sm text-muted-foreground mb-1">
@@ -347,8 +346,8 @@ const MessageRow = React.memo(({
         )}
 
         <div className={cn(
-          "text-base leading-relaxed text-foreground", // Removed fade-in-text to fix blinking
-          msg.role === "user" && "text-right"
+          "text-base leading-relaxed text-foreground transition-all duration-150",
+          msg.role === "user" ? "bg-user-bubble px-[14px] py-[12px] rounded-[12px] text-right" : "bg-transparent text-left"
         )}>
           {msg.role === "assistant" ? (
             <MarkdownContent content={msg.content} />
@@ -433,22 +432,25 @@ export default function ChatArea({
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Track streaming time for "Searching..." status
-  const [streamStartTime, setStreamStartTime] = React.useState(null);
-  const [showSearching, setShowSearching] = React.useState(false);
+  // Track streaming phase for labels
+  const [streamPhase, setStreamPhase] = React.useState("thinking");
 
   useEffect(() => {
     if (isStreaming) {
-      setStreamStartTime(Date.now());
+      const startTime = Date.now();
       const timer = setInterval(() => {
-        if (Date.now() - streamStartTime > 4000) {
-          setShowSearching(true);
+        const elapsed = Date.now() - startTime;
+        if (elapsed > 8000) {
+          setStreamPhase("deep_thinking");
+        } else if (elapsed > 4000) {
+          setStreamPhase("searching");
+        } else {
+          setStreamPhase("thinking");
         }
-      }, 1000);
+      }, 500);
       return () => clearInterval(timer);
     } else {
-      setStreamStartTime(null);
-      setShowSearching(false);
+      setStreamPhase("thinking");
     }
   }, [isStreaming]);
 
@@ -533,7 +535,7 @@ export default function ChatArea({
           </div>
         ) : (
           /* Chat Messages */
-          <div className="mx-auto max-w-3xl w-full px-4 md:px-0 py-8 space-y-8">
+          <div className="mx-auto max-w-chat w-full px-4 md:px-0 py-8 space-y-5">
             {activeSession?.messages.map((msg, index) => {
               const isLastAssistant =
                 msg.role === "assistant" &&
@@ -546,7 +548,7 @@ export default function ChatArea({
                   index={index}
                   isLastAssistant={isLastAssistant}
                   isStreaming={isStreaming}
-                  showSearching={showSearching}
+                  streamPhase={streamPhase}
                   activityLabels={activityLabels}
                   activeSession={activeSession}
                   onMessageChange={onMessageChange}
@@ -585,8 +587,8 @@ export default function ChatArea({
       {/* Footer Input Area */}
       {!isEmpty && (
         <div className="p-4 md:p-6 bg-background z-20">
-          <div className="mx-auto max-w-3xl relative">
-            <div className="relative bg-zinc-800/80 border border-border rounded-2xl p-2 shadow-2xl flex items-center gap-2">
+          <div className="mx-auto max-w-chat relative">
+            <div className="relative bg-input-bg border border-white/[0.05] focus-within:border-white/[0.12] rounded-[12px] p-2 shadow-2xl flex items-center gap-2 transition-all duration-150">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
@@ -611,6 +613,15 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const [selectedFiles, setSelectedFiles] = React.useState([]);
   const mediaRecorderRef = React.useRef(null);
   const audioChunksRef = React.useRef([]);
+  const textareaRef = React.useRef(null);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [value]);
 
   const handleSend = () => {
     if ((value.trim() || selectedFiles.length > 0) && !disabled) {
@@ -752,17 +763,18 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         )}
 
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
           aria-label={isHero ? "Ask anything" : "Message"}
           className={cn(
-            "flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder:text-muted-foreground resize-none py-3 px-3 custom-scrollbar",
+            "flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder:text-text-placeholder resize-none py-3 px-3 custom-scrollbar transition-all duration-150",
             isHero ? "text-lg md:text-xl font-medium" : "text-sm md:text-base"
           )}
-          rows={isHero ? 1 : 1}
-          style={{ minHeight: isHero ? '52px' : '44px' }}
+          rows={1}
+          style={{ minHeight: isHero ? '52px' : '44px', maxHeight: '400px' }}
         />
         <div className="flex items-center gap-2 pr-2">
           <button
@@ -802,19 +814,26 @@ function ActionBtn({ icon, label, onClick }) {
 
 function StreamingStatus({ phase }) {
   let label = "Thinking";
-  let dotColor = "bg-cyan-400";
-  if (phase === "searching") {
-    label = "Searching";
-    dotColor = "bg-emerald-400";
-  } else if (phase === "reasoning") {
-    label = "Reasoning";
-    dotColor = "bg-amber-400";
-  }
+  if (phase === "searching") label = "Searching";
+  if (phase === "deep_thinking") label = "Deep thinking";
+  if (phase === "reasoning") label = "Reasoning";
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-      <span className={`flex w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse`} />
-      <span>{label}…</span>
-    </div>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={label}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="inline-flex items-center gap-2 py-1 text-sm font-medium text-foreground transition-all duration-300"
+      >
+        <div className="flex gap-1">
+          <span className="w-1 h-1 rounded-full bg-foreground animate-[pulse_1.5s_infinite]" />
+          <span className="w-1 h-1 rounded-full bg-foreground animate-[pulse_1.5s_infinite_200ms]" />
+          <span className="w-1 h-1 rounded-full bg-foreground animate-[pulse_1.5s_infinite_400ms]" />
+        </div>
+        <span className="animate-pulse">{label}…</span>
+      </motion.div>
+    </AnimatePresence>
   );
 }
